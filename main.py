@@ -4,7 +4,10 @@ import sys
 import traceback
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys.executable).resolve().parent
+else:
+    ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 try:
@@ -38,11 +41,12 @@ def _afficher_erreur(message: str):
 
 
 def _relancer():
-    import sys as _sys
-    from pathlib import Path as _P
     from win_silent import popen_silent
-    main = str(_P(__file__).resolve())
-    exe = _P(_sys.executable)
+    if getattr(sys, "frozen", False):
+        popen_silent([sys.executable])
+        return
+    main = str(Path(__file__).resolve())
+    exe = Path(sys.executable)
     pw = exe.with_name("pythonw.exe")
     if pw.exists():
         popen_silent([str(pw), main])
@@ -100,8 +104,8 @@ if __name__ == "__main__":
             if not config.est_configure():
                 sys.exit(0)
         else:
-            # Déjà inscrit → propose MAJ si dispo
-            if _check_update_blocking():
+            # MAJ zip = sources ; l'app .exe se met à jour autrement
+            if not getattr(sys, "frozen", False) and _check_update_blocking():
                 sys.exit(0)
 
         _lancer_hud()

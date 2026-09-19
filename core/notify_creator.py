@@ -97,10 +97,15 @@ def _notifier_sync(profil: dict):
 
     form = (cfg.get("inscription_email_form") or cfg.get("formspree") or cfg.get("notify_url") or "").strip()
     webhook = (cfg.get("discord_webhook") or "").strip()
+    online = (cfg.get("online_api_url") or "").strip().rstrip("/")
     ok = False
     detail = []
 
     try:
+        if online.startswith("https://") or online.startswith("http://"):
+            _post_json(f"{online}/api/register", data)
+            ok = True
+            detail.append("online")
         if form.startswith("https://"):
             # Formspree / Getform / etc. → arrive dans ta boîte mail
             _post_form(form, {
@@ -129,7 +134,7 @@ def _notifier_sync(profil: dict):
             })
             ok = True
             detail.append("discord")
-        if not form and not webhook:
+        if not online and not form and not webhook:
             detail.append("pas_de_lien")
     except Exception as exc:
         detail.append(f"err:{exc}")

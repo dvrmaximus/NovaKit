@@ -511,16 +511,19 @@ class AstatApp:
         import sys
         from pathlib import Path
         from win_silent import popen_silent
-        main = str(Path(__file__).resolve().parent.parent / "main.py")
         try:
-            exe = Path(sys.executable)
-            pw = exe.with_name("pythonw.exe")
-            if pw.exists():
-                popen_silent([str(pw), main])
-            elif str(exe).lower().endswith("pythonw.exe"):
-                popen_silent([str(exe), main])
+            if getattr(sys, "frozen", False):
+                popen_silent([sys.executable])
             else:
-                popen_silent(["pyw", "-3", main])
+                main = str(Path(__file__).resolve().parent.parent / "main.py")
+                exe = Path(sys.executable)
+                pw = exe.with_name("pythonw.exe")
+                if pw.exists():
+                    popen_silent([str(pw), main])
+                elif str(exe).lower().endswith("pythonw.exe"):
+                    popen_silent([str(exe), main])
+                else:
+                    popen_silent(["pyw", "-3", main])
         except Exception as exc:
             print(f"[relance] {exc}")
         self._quitter()

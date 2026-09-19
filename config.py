@@ -3,15 +3,58 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent
+
+def _app_root() -> Path:
+    """Dossier de l'app (à côté de l'exe si packagée, sinon sources)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+BASE_DIR = _app_root()
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 ENV_FILE = BASE_DIR / ".env"
 SETUP_FLAG = DATA_DIR / "setup_done.flag"
+KIT_VERSION = "1.1.0"
+
+
+def resource_path(*parts: str) -> Path:
+    """Fichier embarqué (exe) ou source."""
+    rel = Path(*parts)
+    candidates = [BASE_DIR / rel]
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / rel)
+        candidates.append(BASE_DIR / "_internal" / rel)
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
+def bootstrap_app_files() -> None:
+    """Copie creator.json / version.json à côté de l'exe au 1er lancement."""
+    import shutil
+    for name in ("creator.json", "version.json", ".env.example"):
+        dest = BASE_DIR / name
+        if dest.exists():
+            continue
+        src = resource_path(name)
+        if src.exists() and src.resolve() != dest.resolve():
+            try:
+                shutil.copy2(src, dest)
+            except Exception:
+                pass
+
+
+bootstrap_app_files()
 
 load_dotenv(ENV_FILE)
 
@@ -71,7 +114,6 @@ REMINDERS_FILE = DATA_DIR / "reminders.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 
 KIT_NAME = "NovaKit"
-KIT_VERSION = "1.0.0"
 
 
 def instructions_systeme() -> str:

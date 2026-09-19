@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from config import DATA_DIR, NOM_IA, NOM_IA_AFFICHE, REMOTE_PIN, REMOTE_PORT
+from config import DATA_DIR, NOM_IA, NOM_IA_AFFICHE, REMOTE_PIN, REMOTE_PORT, resource_path
 from core.hub import AstatHub
 from remote import state
 from remote.network import obtenir_ip_wifi
@@ -33,8 +33,9 @@ from tools.pc_control import SCREENSHOT_DIR
 app = FastAPI(title=f"{NOM_IA} Remote", docs_url=None, redoc_url=None)
 hub = AstatHub.get()
 
-STATIC = Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
+STATIC = resource_path("remote", "static")
+if STATIC.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
 
 def _verifier_pin(pin: Optional[str]):

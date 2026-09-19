@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NovaKit Admin</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --panel: #0d1522;
+      --line: #1a2a3d;
+      --accent: #3dd6c6;
+      --accent2: #1a9e92;
+      --text: #e8f0f7;
+      --muted: #7a8fa3;
+      --danger: #ff6b6b;
+      --ok: #5ddea8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: "Segoe UI", "Cascadia Code", Consolas, monospace;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, #0f2a2a 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, #122038 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+    h1 { font-size: 1.4rem; letter-spacing: .08em; color: var(--accent); margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: .85rem; margin-bottom: 28px; }
+    .card {
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+    label { display: block; font-size: .75rem; color: var(--muted); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+    input {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid var(--line); background: #0a121c; color: var(--text);
+      font: inherit; outline: none;
+    }
+    input:focus { border-color: var(--accent2); }
+    button {
+      margin-top: 16px; padding: 12px 18px; border: 0; border-radius: 10px;
+      background: var(--accent2); color: #041010; font-weight: 700; cursor: pointer;
+      font: inherit; letter-spacing: .04em;
+    }
+    button:hover { background: var(--accent); }
+    button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+    .err { color: var(--danger); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .stat {
+      border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+      background: #0a121c;
+    }
+    .stat b { display: block; font-size: 1.6rem; color: var(--accent); }
+    .stat span { color: var(--muted); font-size: .8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; }
+    tr:hover td { background: #0a1520; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hidden { display: none !important; }
+    .badge { color: var(--ok); font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="loginView" class="card">
+      <h1>◈ NovaKit Admin</h1>
+      <p class="sub">Connexion créateur — vois qui a installé ton kit</p>
+      <label>Utilisateur</label>
+      <input id="user" autocomplete="username" value="Lutre" />
+      <label>Mot de passe</label>
+      <input id="pass" type="password" autocomplete="current-password" />
+      <button id="btnLogin">SE CONNECTER</button>
+      <div class="err" id="loginErr"></div>
+    </div>
+
+    <div id="dashView" class="hidden">
+      <div class="top">
+        <div>
+          <h1>◈ Tableau de bord</h1>
+          <p class="sub" style="margin:0">Inscriptions en direct</p>
+        </div>
+        <div>
+          <button class="ghost" id="btnRefresh" type="button">RAFRAÎCHIR</button>
+          <button class="ghost" id="btnLogout" type="button">DÉCONNEXION</button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card" style="margin-top:18px">
+        <div class="top" style="margin-bottom:12px">
+          <strong>Installations</strong>
+          <span class="badge" id="liveBadge">● en ligne</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Pseudo</th><th>IA</th><th>Ville</th><th>PC</th><th>Quand</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Changer le mot de passe</strong>
+        <label>Ancien</label>
+        <input id="oldPass" type="password" />
+        <label>Nouveau (≥ 6)</label>
+        <input id="newPass" type="password" />
+        <button id="btnPwd" type="button">METTRE À JOUR</button>
+        <div class="err" id="pwdErr"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+        ...opts,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.message || ("HTTP " + res.status));
+      return data;
+    }
+
+    function showDash(on) {
+      $("loginView").classList.toggle("hidden", on);
+      $("dashView").classList.toggle("hidden", !on);
+    }
+
+    async function load() {
+      const me = await api("/api/admin/me");
+      const list = await api("/api/admin/installs");
+      const dernier = me.dernier
+        ? `${me.dernier.pseudo || "?"} → ${me.dernier.nom_ia || "?"}`
+        : "—";
+      $("stats").innerHTML = `
+        <div class="stat"><b>${me.total}</b><span>installations</span></div>
+        <div class="stat"><b style="font-size:1rem">${dernier}</b><span>dernière</span></div>
+      `;
+      $("rows").innerHTML = (list.items || []).map((r) => `
+        <tr>
+          <td>${r.id}</td>
+          <td>${esc(r.pseudo)}</td>
+          <td>${esc(r.nom_ia)}</td>
+          <td>${esc(r.ville || "—")}</td>
+          <td>${esc((r.os || "") + " " + (r.pc || ""))}</td>
+          <td>${esc((r.when_utc || "").replace("T", " ").slice(0, 19))}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="6" style="color:var(--muted)">Aucune inscription pour l’instant.</td></tr>`;
+    }
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
+    }
+
+    $("btnLogin").onclick = async () => {
+      $("loginErr").textContent = "";
+      try {
+        await api("/api/admin/login", {
+          method: "POST",
+          body: JSON.stringify({ username: $("user").value.trim(), password: $("pass").value }),
+        });
+        showDash(true);
+        await load();
+      } catch (e) {
+        $("loginErr").textContent = e.message || "Erreur";
+      }
+    };
+
+    $("btnLogout").onclick = async () => {
+      await api("/api/admin/logout", { method: "POST", body: "{}" });
+      showDash(false);
+    };
+    $("btnRefresh").onclick = () => load().catch((e) => alert(e.message));
+    $("btnPwd").onclick = async () => {
+      $("pwdErr").textContent = "";
+      try {
+        await api("/api/admin/password", {
+          method: "POST",
+          body: JSON.stringify({
+            username: $("user").value.trim() || "Lutre",
+            old_password: $("oldPass").value,
+            new_password: $("newPass").value,
+          }),
+        });
+        $("pwdErr").style.color = "var(--ok)";
+        $("pwdErr").textContent = "Mot de passe mis à jour.";
+        $("oldPass").value = "";
+        $("newPass").value = "";
+      } catch (e) {
+        $("pwdErr").style.color = "var(--danger)";
+        $("pwdErr").textContent = e.message;
+      }
+    };
+
+    api("/api/admin/me").then(() => { showDash(true); return load(); }).catch(() => showDash(false));
+  </script>
+</body>
+</html>

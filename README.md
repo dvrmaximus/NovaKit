@@ -2,46 +2,44 @@
 
 HUD type Jarvis **à partager** : inscription simple + discussion avec ton IA + **MAJ auto**.
 
-## Pour tes potes (qui reçoivent le zip)
+## Application Windows
 
-1. `install.bat`
-2. `Lancer NovaKit.vbs`
-3. 3 écrans : **prénom** + **nom de l’IA** → **clé Gemini** → **PIN**
-4. Bouton **DISCUSSION AVEC L'IA**
+1. `Build Application.bat` → crée `dist\NovaKit\NovaKit.exe`
+2. `Installer Application.bat` → installe dans `%LOCALAPPDATA%\Programs\NovaKit`
+3. Raccourci **NovaKit** sur le Bureau + Menu Démarrer
 
-## Pour toi (créateur) — 2 minutes
+Ensuite tu lances NovaKit comme n’importe quelle app (plus besoin de Python visible).
 
-Double-clique **`Configurer Notifs.bat`** :
+## Pour toi (créateur) — système online + admin
 
-### 1) Inscriptions (mail)
-1. Va sur https://formspree.io (gratuit)
-2. New Form → copie l’URL `https://formspree.io/f/xxxxx`
-3. Colle-la dans le champ **Inscriptions**
+1. Double-clique **`Lancer Systeme Online.bat`**
+2. Un compte admin **Lutre** est créé (mot de passe dans `data/admin_credentials.txt`)
+3. Un tunnel public s’ouvre → panel web des installations
+4. L’URL est écrite dans `creator.json` (`online_api_url`) pour que les potes s’inscrivent chez toi
 
-→ À chaque install tu reçois un **mail** (pseudo + nom d’IA). Pas de clé API.
+Laisse la fenêtre ouverte pour rester en ligne.
 
-### 2) Mises à jour auto
-1. Mets NovaKit sur **GitHub** (ou un hébergeur de fichiers)
-2. En ligne, garde un fichier `version.json` :
+Optionnel : **`Configurer Notifs.bat`** pour Formspree (mail) + lien `version.json` GitHub.
+
+### Mises à jour auto
+Sur GitHub, mets à jour `version.json` :
 
 ```json
 {
   "version": "1.1.0",
-  "zip_url": "https://github.com/TOI/NovaKit/archive/refs/heads/main.zip",
+  "zip_url": "https://github.com/dvrmaximus/NovaKit/archive/refs/heads/main.zip",
   "notes": "Améliorations HUD"
 }
 ```
 
-3. Colle l’URL raw de ce fichier dans **Mises à jour**  
-   ex. `https://raw.githubusercontent.com/TOI/NovaKit/main/version.json`
-
-Quand tu publies une nouvelle version (augmente `version` + `zip_url`), au prochain lancement tes potes voient « Installer la mise à jour ? » — leurs `.env` et données sont **gardés**.
+Quand tu publies une nouvelle version, au prochain lancement tes potes voient « Installer la mise à jour ? » — leurs `.env` et données sont **gardés**.
 
 ## Fichiers utiles
 
 | Fichier | Rôle |
 |---------|------|
-| `Configurer Notifs.bat` | Tes 2 liens (mail + MAJ) |
+| `Lancer Systeme Online.bat` | Panel admin + tunnel public |
+| `Configurer Notifs.bat` | Liens mail / MAJ / online |
 | `version.json` | Version locale / modèle à publier |
 | `creator.json` | Config sauvegardée |
 | `Reset Setup.bat` | Refaire l’inscription |
