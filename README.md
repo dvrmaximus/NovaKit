@@ -38,6 +38,9 @@ Quand tu publies une nouvelle version, au prochain lancement tes potes voient «
 
 | Fichier | Rôle |
 |---------|------|
+| `NovaKit` (Bureau) | Lance l’application installée |
+| `Installer Application.bat` | Installe l’app + raccourcis |
+| `Build Application.bat` | Reconstruit le `.exe` |
 | `Lancer Systeme Online.bat` | Panel admin + tunnel public |
 | `Configurer Notifs.bat` | Liens mail / MAJ / online |
 | `version.json` | Version locale / modèle à publier |
