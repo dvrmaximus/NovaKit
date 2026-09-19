@@ -1,0 +1,11 @@
+# NovaKit
+.env
+data/
+bin/*.exe
+__pycache__/
+*.pyc
+novakit_error.log
+client_secret*.json
+.venv/
+venv/
+*.zip

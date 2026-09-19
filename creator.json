@@ -1,0 +1,8 @@
+{
+  "creator_name": "Lutre",
+  "inscription_email_form": "",
+  "discord_webhook": "",
+  "update_check_url": "https://raw.githubusercontent.com/dvrmaximus/NovaKit/main/version.json",
+  "enabled": true,
+  "_aide": "inscription_email_form = lien Formspree (https://formspree.io) → tu reçois un mail. update_check_url = lien vers ton version.json en ligne."
+}

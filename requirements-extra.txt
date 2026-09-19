@@ -1,0 +1,4 @@
+pyaudio
+pycaw
+comtypes
+psutil

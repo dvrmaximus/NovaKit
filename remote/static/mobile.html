@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#05080c">
+  <title>{{NOM_IA_AFFICHE}}</title>
+  <style>
+    :root{
+      --bg:#05080c; --panel:#0a1018; --panel2:#0f1620; --line:#1a2733;
+      --accent:#00d4ff; --accent2:#3de0ff; --dim:#1a6b7a;
+      --text:#e8f6fa; --muted:#5a7380; --ok:#00e8a0; --warn:#ffb020; --danger:#ff5a6a;
+      --radius:14px; --safe-b:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+    body{display:flex;flex-direction:column;min-height:100dvh}
+
+    /* PIN */
+    #pinScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;gap:18px;
+      background:radial-gradient(ellipse at 50% 20%,#0a2a33 0%,var(--bg) 55%)}
+    .logo{font-family:Consolas,ui-monospace,monospace;font-size:1.8rem;letter-spacing:.42em;color:var(--accent);font-weight:700}
+    .logo-sub{font-size:.75rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
+    #pinInput{width:200px;padding:16px;border-radius:12px;border:1px solid var(--dim);background:var(--panel);
+      color:var(--text);font-size:1.6rem;text-align:center;letter-spacing:.45em;outline:none}
+    #pinInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.15)}
+    .btn-primary{background:linear-gradient(135deg,var(--dim),#0e8fa3);color:#041016;border:none;padding:14px 36px;
+      border-radius:12px;font-weight:700;font-size:.95rem;letter-spacing:.08em;cursor:pointer}
+    .btn-primary:active{transform:scale(.98)}
+    #pinError{color:var(--danger);font-size:.8rem;display:none}
+
+    /* APP */
+    #app{display:none;flex-direction:column;height:100dvh}
+    #app.active{display:flex}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+      background:rgba(7,11,16,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+    header .brand{font-family:Consolas,monospace;font-size:.8rem;color:var(--accent);letter-spacing:.22em}
+    #connStatus{font-family:Consolas,monospace;font-size:.65rem;color:var(--ok)}
+
+    .tabs{display:flex;gap:6px;padding:8px 12px;background:var(--bg);overflow-x:auto}
+    .tab{flex:1;min-width:68px;padding:10px 6px;text-align:center;font-family:Consolas,monospace;font-size:.62rem;
+      letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
+    .tab.active{color:var(--accent);border-color:var(--dim);background:linear-gradient(180deg,#0d1c24,var(--panel))}
+
+    .panel{display:none;flex:1;overflow:hidden;flex-direction:column}
+    .panel.active{display:flex}
+
+    /* Chat */
+    #chat{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+    .msg{max-width:88%;padding:12px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word;animation:fadeIn .25s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .msg.user{align-self:flex-end;background:var(--panel2);border:1px solid var(--line)}
+    .msg.astat{align-self:flex-start;background:#071820;border:1px solid rgba(0,212,255,.25)}
+    .msg .tag{font-family:Consolas,monospace;font-size:.6rem;color:var(--accent2);margin-bottom:5px;opacity:.85}
+    .msg.user .tag{color:var(--muted)}
+
+    .quick{padding:8px 12px;border-top:1px solid var(--line);background:var(--panel);display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+    .quick button{padding:10px 4px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+      color:var(--muted);font-family:Consolas,monospace;font-size:.6rem;cursor:pointer}
+    .quick button:active{background:var(--dim);color:#041016}
+
+    .composer{display:flex;gap:8px;padding:10px 12px calc(10px + var(--safe-b));background:#070b10;border-top:1px solid var(--line)}
+    .composer input{flex:1;background:var(--panel);border:1px solid var(--dim);border-radius:12px;padding:13px 14px;color:var(--text);font-size:1rem;outline:none}
+    .composer input:focus{border-color:var(--accent)}
+    .composer button{width:48px;border:none;border-radius:12px;background:var(--accent);color:#041016;font-size:1.15rem;font-weight:700;cursor:pointer}
+
+    /* Screen */
+    .screen-toolbar{display:flex;gap:6px;padding:8px 10px;align-items:center;flex-wrap:wrap}
+    .screen-toolbar button{flex:1;min-width:64px;padding:11px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+      color:var(--accent);font-family:Consolas,monospace;font-size:.62rem;cursor:pointer}
+    .screen-toolbar button.on{background:var(--dim);color:#041016;font-weight:700;border-color:var(--accent)}
+    .screen-toolbar .badge{font-family:Consolas,monospace;font-size:.62rem;color:var(--ok);min-width:52px;text-align:center}
+    .screen-stage{flex:1;margin:0 10px;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;min-height:0;
+      display:flex;align-items:center;justify-content:center}
+    #liveScreen{width:100%;height:100%;object-fit:contain;display:block;touch-action:manipulation;background:#000}
+    .screen-hint{text-align:center;font-size:.65rem;color:var(--muted);padding:8px 12px calc(8px + var(--safe-b))}
+    .fps{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:var(--ok);font-family:Consolas,monospace;
+      font-size:.6rem;padding:4px 8px;border-radius:6px;pointer-events:none}
+
+    /* Plein écran immersif (mobile-friendly, marche aussi iOS) */
+    #app.screen-fs header,
+    #app.screen-fs .tabs,
+    #app.screen-fs .screen-hint{display:none!important}
+    #app.screen-fs{background:#000}
+    #app.screen-fs #panel-screen{
+      position:fixed;inset:0;z-index:80;background:#000;margin:0;padding:0;
+    }
+    #app.screen-fs .screen-toolbar{
+      position:absolute;top:0;left:0;right:0;z-index:90;
+      background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.25));
+      padding:calc(8px + env(safe-area-inset-top,0px)) 10px 12px;
+      transition:opacity .25s,transform .25s;
+    }
+    #app.screen-fs .screen-toolbar.hidden{opacity:0;pointer-events:none;transform:translateY(-8px)}
+    #app.screen-fs .screen-stage{
+      margin:0;border:none;border-radius:0;flex:1;height:100%;
+    }
+    #exitFsBtn{
+      display:none;position:fixed;bottom:calc(16px + var(--safe-b));right:16px;z-index:95;
+      padding:12px 16px;border-radius:12px;border:1px solid var(--dim);background:rgba(10,20,28,.9);
+      color:var(--accent);font-family:Consolas,monospace;font-size:.7rem;letter-spacing:.06em;
+    }
+    #app.screen-fs #exitFsBtn{display:block}
+
+    /* Lists */
+    .scroll{flex:1;overflow-y:auto;padding:12px}
+    .card{display:block;width:100%;padding:14px 16px;margin-bottom:8px;background:var(--panel2);border:1px solid var(--line);
+      color:var(--text);border-radius:12px;font-size:.9rem;cursor:pointer;text-align:left}
+    .card:active{border-color:var(--dim);background:#121c28}
+    .card.danger{border-color:rgba(255,90,106,.4);color:#ff9aa4}
+    .section{font-family:Consolas,monospace;font-size:.65rem;color:var(--dim);letter-spacing:.12em;margin:14px 4px 8px}
+
+    .toast{position:fixed;left:50%;bottom:calc(80px + var(--safe-b));transform:translateX(-50%);background:rgba(10,20,28,.95);
+      border:1px solid var(--dim);color:var(--text);padding:10px 16px;border-radius:10px;font-size:.8rem;opacity:0;pointer-events:none;
+      transition:opacity .25s;z-index:50}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+
+<div id="pinScreen">
+  <div class="logo">{{NOM_IA_AFFICHE}}</div>
+  <div class="logo-sub">Remote Control</div>
+  <input type="password" id="pinInput" maxlength="8" inputmode="numeric" placeholder="••••" autocomplete="one-time-code">
+  <button class="btn-primary" onclick="connect()">CONNEXION</button>
+  <p id="pinError">PIN incorrect</p>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand">◈ {{NOM_IA_AFFICHE}}</div>
+    <span id="connStatus">● ONLINE</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="chat" onclick="showTab('chat')">CHAT</div>
+    <div class="tab" data-tab="screen" onclick="showTab('screen')">ÉCRAN</div>
+    <div class="tab" data-tab="pc" onclick="showTab('pc')">PC</div>
+    <div class="tab" data-tab="media" onclick="showTab('media')">MÉDIA</div>
+  </div>
+
+  <div class="panel active" id="panel-chat">
+    <div id="chat"></div>
+    <div class="quick">
+      <button onclick="send('Quelle heure est-il ?')">HEURE</button>
+      <button onclick="send('Quel temps fait-il ?')">MÉTÉO</button>
+      <button onclick="quickAction('lock')">LOCK</button>
+      <button onclick="showTab('screen')">ÉCRAN</button>
+    </div>
+    <div class="composer">
+      <input id="msgInput" placeholder="Ordre à {{NOM_IA}}…" onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()">▸</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-screen">
+    <div class="screen-toolbar" id="screenToolbar">
+      <button id="btnLive" class="on" onclick="toggleLive()">● LIVE</button>
+      <span class="badge" id="fpsLabel">0 FPS</span>
+      <button id="btnScreen" onclick="cycleScreen()">ÉCRAN 1</button>
+      <button id="btnAudio" onclick="toggleAudio()">♪ SON</button>
+      <button id="btnFs" onclick="toggleFullscreen()">PLEIN ÉCRAN</button>
+      <button onclick="setQuality('eco')">ECO</button>
+      <button onclick="setQuality('hq')">HQ</button>
+    </div>
+    <div class="screen-stage" id="screenStage">
+      <img id="liveScreen" alt="Écran PC" onclick="onScreenTap(event)">
+    </div>
+    <p class="screen-hint">Touche = clic · PLEIN ÉCRAN · SON = audio du PC</p>
+  </div>
+  <button id="exitFsBtn" onclick="toggleFullscreen(false)">✕ QUITTER PLEIN ÉCRAN</button>
+
+  <div class="panel" id="panel-pc">
+    <div class="scroll">
+      <div class="section">SYSTÈME</div>
+      <button class="card" onclick="quickAction('lock')">🔒 Verrouiller l’écran</button>
+      <button class="card" onclick="quickAction('sleep')">💤 Mettre en veille</button>
+      <button class="card" onclick="showTab('screen')">🖥 Voir l’écran en live</button>
+      <div class="section">APPS</div>
+      <button class="card" onclick="send('Ouvre Chrome')">🌐 Chrome</button>
+      <button class="card" onclick="send('Ouvre Spotify')">🎵 Spotify</button>
+      <button class="card" onclick="send('Ouvre Discord')">💬 Discord</button>
+      <div class="section">ASSISTANT</div>
+      <button class="card" onclick="send('Quelle heure est-il ?')">⏱ Heure</button>
+      <button class="card" onclick="send('Quel temps fait-il ?')">🌤 Météo</button>
+      <button class="card" onclick="send('Lis mes derniers mails')">📧 Mails</button>
+      <button class="card" onclick="send('connecte Gmail')">🔗 Connecter Gmail</button>
+      <div class="section">ALIMENTATION</div>
+      <button class="card danger" onclick="if(confirm('Éteindre le PC dans 1 minute ?'))send('Éteins l ordinateur dans 1 minute')">⏻ Éteindre (1 min)</button>
+      <button class="card" onclick="quickAction('cancel_shutdown')">✕ Annuler extinction</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-media">
+    <div class="scroll">
+      <div class="section">LECTURE</div>
+      <button class="card" onclick="quickAction('pause')">⏯ Play / Pause</button>
+      <button class="card" onclick="quickAction('prev')">⏮ Précédent</button>
+      <button class="card" onclick="quickAction('next')">⏭ Suivant</button>
+      <div class="section">VOLUME</div>
+      <button class="card" onclick="send('Mets le volume à 20 pourcent')">🔉 20 %</button>
+      <button class="card" onclick="send('Mets le volume à 50 pourcent')">🔊 50 %</button>
+      <button class="card" onclick="send('Mets le volume à 80 pourcent')">🔊 80 %</button>
+      <button class="card" onclick="quickAction('volume_up')">Volume +</button>
+      <button class="card" onclick="quickAction('volume_down')">Volume −</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const AI_NAME = "{{NOM_IA}}";
+const AI_DISPLAY = "{{NOM_IA_AFFICHE}}";
+
+const state = {
+  pin: localStorage.getItem('novakit_pin') || '',
+  ws: null,
+  screenWs: null,
+  audioWs: null,
+  live: false,
+  audio: false,
+  fullscreen: false,
+  toolbarHideTimer: null,
+  objectUrl: null,
+  frames: 0,
+  fpsTimer: null,
+  quality: 'eco',
+  screens: [],
+  screenIndex: 1,
+  audioCtx: null,
+  audioNextTime: 0,
+  audioGain: null,
+};
+
+if (state.pin) {
+  document.getElementById('pinInput').value = state.pin;
+  connect();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+async function connect() {
+  state.pin = document.getElementById('pinInput').value.trim();
+  try {
+    const r = await fetch('/api/auth', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pin: state.pin}),
+    });
+    if (!r.ok) throw new Error();
+    localStorage.setItem('novakit_pin', state.pin);
+    document.getElementById('pinScreen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    connectWs();
+    await loadScreens();
+    addMsg('astat', `En ligne. Onglet ÉCRAN → live PC, PLEIN ÉCRAN, et SON pour entendre le PC.`);
+  } catch {
+    document.getElementById('pinError').style.display = 'block';
+  }
+}
+
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  state.ws = new WebSocket(`${proto}://${location.host}/ws?pin=${encodeURIComponent(state.pin)}`);
+  state.ws.onclose = () => {
+    document.getElementById('connStatus').textContent = '○ RECONNECT…';
+    document.getElementById('connStatus').style.color = 'var(--warn)';
+    setTimeout(connectWs, 2500);
+  };
+  state.ws.onopen = () => {
+    document.getElementById('connStatus').textContent = '● ONLINE';
+    document.getElementById('connStatus').style.color = 'var(--ok)';
+  };
+}
+
+function headers() {
+  return {'Content-Type': 'application/json', 'X-Astat-Pin': state.pin};
+}
+
+function addMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'astat' ? 'astat' : 'user');
+  div.innerHTML = `<div class="tag">${role === 'astat' ? AI_DISPLAY : 'VOUS'}</div>${escapeHtml(text)}`;
+  const chat = document.getElementById('chat');
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msgInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  await send(msg);
+}
+
+async function send(msg) {
+  addMsg('user', msg);
+  showTab('chat');
+  try {
+    const r = await fetch('/api/command', {method:'POST', headers:headers(), body:JSON.stringify({message:msg})});
+    const d = await r.json();
+    addMsg('astat', d.response || '…');
+  } catch {
+    addMsg('astat', 'Connexion perdue. Vérifie que l’assistant tourne sur le PC.');
+  }
+}
+
+async function quickAction(action) {
+  try {
+    const r = await fetch(`/api/action/${action}`, {method:'POST', headers:headers()});
+    const d = await r.json();
+    if (document.getElementById('panel-chat').classList.contains('active')) {
+      addMsg('astat', d.response || 'OK');
+    } else {
+      toast(d.response || 'OK');
+    }
+  } catch {
+    toast('Erreur réseau');
+  }
+}
+
+function updateScreenButton() {
+  const btn = document.getElementById('btnScreen');
+  if (!btn) return;
+  const n = state.screens.length || 1;
+  btn.textContent = n > 1 ? `ÉCRAN ${state.screenIndex}/${n}` : `ÉCRAN ${state.screenIndex}`;
+}
+
+async function loadScreens() {
+  try {
+    const r = await fetch(`/api/screens?pin=${encodeURIComponent(state.pin)}`, {headers: headers()});
+    const d = await r.json();
+    state.screens = d.screens || [];
+    state.screenIndex = (d.current && d.current.index) || 1;
+    updateScreenButton();
+  } catch {
+    state.screens = [{index: 1}];
+    updateScreenButton();
+  }
+}
+
+async function cycleScreen() {
+  if (!state.screens.length) await loadScreens();
+  if (!state.screens.length) {
+    toast('Aucun écran détecté');
+    return;
+  }
+  const indices = state.screens.map(s => s.index);
+  const pos = indices.indexOf(state.screenIndex);
+  const next = indices[(pos + 1) % indices.length];
+  try {
+    const r = await fetch('/api/screen/select', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({index: next}),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Erreur');
+    state.screenIndex = d.current.index;
+    updateScreenButton();
+    toast(d.current.label || `Écran ${state.screenIndex}`);
+  } catch (e) {
+    toast('Impossible de changer d\'écran');
+  }
+}
+
+function liveUrl() {
+  return `/api/screen/live?pin=${encodeURIComponent(state.pin)}&q=${state.quality === 'hq' ? 55 : 40}&t=${Date.now()}`;
+}
+
+function refreshScreen() {
+  document.getElementById('liveScreen').src = liveUrl();
+}
+
+function startLive() {
+  stopLive();
+  state.live = true;
+  state.frames = 0;
+  const btn = document.getElementById('btnLive');
+  btn.classList.add('on');
+  btn.textContent = '● LIVE';
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const fps = 30;
+  const q = state.quality === 'hq' ? 'hq' : 'eco';
+  state.screenWs = new WebSocket(
+    `${proto}://${location.host}/ws/screen?pin=${encodeURIComponent(state.pin)}&fps=${fps}&q=${q}`
+  );
+  state.screenWs.binaryType = 'arraybuffer';
+
+  state.screenWs.onmessage = (event) => {
+    const blob = new Blob([event.data], {type: 'image/jpeg'});
+    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+    state.objectUrl = URL.createObjectURL(blob);
+    document.getElementById('liveScreen').src = state.objectUrl;
+    state.frames += 1;
+  };
+
+  state.screenWs.onerror = () => {
+    // Fallback HTTP si le WS échoue
+    if (state.live) {
+      document.getElementById('fpsLabel').textContent = 'HTTP';
+      state.timer = setInterval(refreshScreen, 120);
+    }
+  };
+
+  state.screenWs.onclose = () => {
+    if (state.live) {
+      setTimeout(() => { if (state.live) startLive(); }, 800);
+    }
+  };
+
+  if (state.fpsTimer) clearInterval(state.fpsTimer);
+  state.fpsTimer = setInterval(() => {
+    document.getElementById('fpsLabel').textContent = `${state.frames} FPS`;
+    state.frames = 0;
+  }, 1000);
+}
+
+function stopLive() {
+  state.live = false;
+  const btn = document.getElementById('btnLive');
+  btn.classList.remove('on');
+  btn.textContent = '○ LIVE';
+  if (state.screenWs) {
+    try { state.screenWs.close(); } catch {}
+    state.screenWs = null;
+  }
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  if (state.fpsTimer) { clearInterval(state.fpsTimer); state.fpsTimer = null; }
+  if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = null; }
+  document.getElementById('fpsLabel').textContent = '0 FPS';
+}
+
+function toggleLive() { state.live ? stopLive() : startLive(); }
+
+/* ── Plein écran ── */
+function toggleFullscreen(force) {
+  const want = (typeof force === 'boolean') ? force : !state.fullscreen;
+  state.fullscreen = want;
+  document.getElementById('app').classList.toggle('screen-fs', want);
+  const btn = document.getElementById('btnFs');
+  if (btn) {
+    btn.classList.toggle('on', want);
+    btn.textContent = want ? 'QUITTER FS' : 'PLEIN ÉCRAN';
+  }
+  const tb = document.getElementById('screenToolbar');
+  if (tb) tb.classList.remove('hidden');
+  if (want) {
+    showTab('screen');
+    scheduleHideToolbar();
+    // API native si dispo (Android Chrome)
+    const stage = document.getElementById('screenStage');
+    try {
+      const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+      if (req) req.call(stage);
+    } catch {}
+  } else {
+    clearTimeout(state.toolbarHideTimer);
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
+    } catch {}
+  }
+}
+
+function scheduleHideToolbar() {
+  clearTimeout(state.toolbarHideTimer);
+  const tb = document.getElementById('screenToolbar');
+  if (!state.fullscreen || !tb) return;
+  tb.classList.remove('hidden');
+  state.toolbarHideTimer = setTimeout(() => {
+    if (state.fullscreen) tb.classList.add('hidden');
+  }, 2800);
+}
+
+function onScreenTap(event) {
+  if (state.fullscreen) {
+    const tb = document.getElementById('screenToolbar');
+    if (tb && tb.classList.contains('hidden')) {
+      scheduleHideToolbar();
+      return; // premier tap = montrer barre, pas clic PC
+    }
+    scheduleHideToolbar();
+  }
+  clickScreen(event);
+}
+
+/* ── Audio PC → téléphone ── */
+async function toggleAudio() {
+  if (state.audio) stopAudio();
+  else await startAudio();
+}
+
+async function startAudio() {
+  stopAudio();
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    state.audioCtx = new AudioCtx();
+    if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+    state.audioGain = state.audioCtx.createGain();
+    state.audioGain.gain.value = 1.0;
+    state.audioGain.connect(state.audioCtx.destination);
+    state.audioNextTime = state.audioCtx.currentTime + 0.1;
+    state.audioSampleRate = 24000;
+  } catch (e) {
+    toast('Audio navigateur bloqué — touche SON à nouveau');
+    return;
+  }
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  state.audioWs = new WebSocket(`${proto}://${location.host}/ws/audio?pin=${encodeURIComponent(state.pin)}`);
+  state.audioWs.binaryType = 'arraybuffer';
+  state.audio = true;
+  const btn = document.getElementById('btnAudio');
+  if (btn) { btn.classList.add('on'); btn.textContent = '♪ SON ON'; }
+
+  state.audioWs.onmessage = (event) => {
+    if (typeof event.data === 'string') {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'error') {
+          toast(msg.message || 'Audio KO');
+          stopAudio();
+        } else if (msg.type === 'audio_config') {
+          if (msg.sampleRate) state.audioSampleRate = msg.sampleRate;
+          if (msg.error) toast(msg.error);
+        }
+      } catch {}
+      return;
+    }
+    playPcmChunk(event.data);
+  };
+  state.audioWs.onerror = () => toast('Flux audio interrompu');
+  state.audioWs.onclose = () => {
+    if (state.audio) {
+      state.audio = false;
+      const b = document.getElementById('btnAudio');
+      if (b) { b.classList.remove('on'); b.textContent = '♪ SON'; }
+    }
+  };
+  toast('Son du PC activé');
+}
+
+function playPcmChunk(arrayBuffer) {
+  if (!state.audioCtx || !state.audioGain) return;
+  const samples = new Int16Array(arrayBuffer);
+  if (!samples.length) return;
+  const f32 = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) f32[i] = samples[i] / 32768;
+  const rate = state.audioSampleRate || 24000;
+  const buf = state.audioCtx.createBuffer(1, f32.length, rate);
+  buf.copyToChannel(f32, 0);
+  const src = state.audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(state.audioGain);
+  const now = state.audioCtx.currentTime;
+  if (state.audioNextTime < now + 0.03) state.audioNextTime = now + 0.03;
+  if (state.audioNextTime > now + 0.75) state.audioNextTime = now + 0.05;
+  src.start(state.audioNextTime);
+  state.audioNextTime += buf.duration;
+}
+
+function stopAudio() {
+  state.audio = false;
+  const btn = document.getElementById('btnAudio');
+  if (btn) { btn.classList.remove('on'); btn.textContent = '♪ SON'; }
+  if (state.audioWs) {
+    try { state.audioWs.close(); } catch {}
+    state.audioWs = null;
+  }
+  if (state.audioCtx) {
+    try { state.audioCtx.close(); } catch {}
+    state.audioCtx = null;
+    state.audioGain = null;
+  }
+}
+
+function setQuality(mode) {
+  state.quality = mode;
+  toast(mode === 'hq' ? 'Qualité HQ (plus lourd)' : 'Mode éco (plus fluide)');
+  if (state.live) startLive();
+}
+
+async function clickScreen(event) {
+  const img = event.target;
+  const rect = img.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / Math.max(rect.width, 1);
+  const y = (event.clientY - rect.top) / Math.max(rect.height, 1);
+  try {
+    await fetch('/api/screen/click', {method:'POST', headers:headers(), body:JSON.stringify({x, y})});
+  } catch {
+    toast('Clic impossible');
+  }
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'screen') {
+    loadScreens();
+    if (!state.live) startLive();
+  } else {
+    if (state.fullscreen) toggleFullscreen(false);
+    stopLive();
+    // garde l'audio si l'utilisateur veut écouter en naviguant ? on coupe pour batterie
+    stopAudio();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && state.fullscreen) {
+    // sorti via geste système → sync UI
+  }
+});
+</script>
+</body>
+</html>
