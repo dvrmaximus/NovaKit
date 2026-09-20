@@ -2,6 +2,7 @@
 .env
 data/
 bin/*.exe
+*.exe
 __pycache__/
 *.pyc
 novakit_error.log
@@ -13,3 +14,8 @@ admin_credentials.txt
 build/
 dist/
 *.spec.bak
+*.lnk
+# Lanceurs personnels (chemins locaux) — ne pas republier
+Lancer Mon Astat.*
+Mon Astat.*
+*.vbs

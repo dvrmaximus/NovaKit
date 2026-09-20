@@ -11,7 +11,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo  OK. Double-clique maintenant sur "Lancer NovaKit.vbs"
+echo  OK. Double-clique maintenant sur "Lancer NovaKit.bat"
 echo  Au premier lancement : wizard (nom IA, cle Gemini, PIN).
 echo.
 pause
