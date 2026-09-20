@@ -95,11 +95,14 @@ class AstatApp:
         self.root.bind("<Control-k>", lambda e: self.entry.focus())
         self.root.bind("<Control-Shift-A>", lambda e: self._toggle_click_through())
         self.root.bind("<Control-Shift-Q>", lambda e: self._quitter())
+        self.root.bind("<F2>", lambda e: self._ouvrir_parametres())
+        self.root.bind("<Control-comma>", lambda e: self._ouvrir_parametres())
 
         self._demarrer_remote()
         self._demarrer_boot()
         self._tick_horloge()
         self._tick_telemetry()
+        self.root.after(2500, self._check_backup_quotidienne)
 
     # ── Mode fond d'écran ─────────────────────────────────────────
 
@@ -234,6 +237,12 @@ class AstatApp:
         self._btn(top, "✕", self._quitter, danger=True, width=36, height=30).pack(
             side="right", padx=(4, 12), pady=9
         )
+        # Bouton paramètres bien visible (barre du haut)
+        ctk.CTkButton(
+            top, text="⚙  PARAMÈTRES", width=128, height=32, corner_radius=8,
+            font=self.font_hud_b, fg_color=ACCENT_DIM, hover_color=ACCENT,
+            text_color=BG_DEEP, command=self._ouvrir_parametres,
+        ).pack(side="right", padx=6, pady=8)
         self.desk_mode_btn = self._btn(
             top, "BUREAU LIBRE", self._toggle_click_through, width=120, height=30,
         )
@@ -439,6 +448,11 @@ class AstatApp:
         self._btn(pad, "DISCUSSION AVEC L'IA", self._ouvrir_discussion, primary=True, height=44).pack(
             fill="x", pady=(8, 4)
         )
+        ctk.CTkButton(
+            pad, text="⚙  PARAMÈTRES", height=42, corner_radius=8,
+            font=self.font_hud_b, fg_color=ACCENT_DIM, hover_color=ACCENT,
+            text_color=BG_DEEP, command=self._ouvrir_parametres,
+        ).pack(fill="x", pady=(4, 4))
         self._btn(pad, "ACTIVATION VOCALE", self.start_listening, primary=False, height=40).pack(
             fill="x", pady=(4, 4)
         )
@@ -447,7 +461,7 @@ class AstatApp:
         tip.pack(fill="x", pady=(16, 0))
         ctk.CTkLabel(
             tip,
-            text="HUD plein écran\nF8  →  bureau libre\n✕  →  quitter",
+            text="HUD plein écran\nF8  →  bureau libre\nF2  →  paramètres\n✕  →  quitter",
             font=self.font_sub, text_color=TEXT_MUTED, justify="left",
         ).pack(anchor="w", padx=12, pady=10)
 
@@ -534,6 +548,36 @@ class AstatApp:
             ouvrir_discussion(self.root)
         except Exception as exc:
             self.ajouter_bulle("astat", f"Discussion impossible : {exc}")
+
+    def _ouvrir_parametres(self, event=None):
+        try:
+            from ui.settings_window import ouvrir_parametres
+            ouvrir_parametres(self.root, on_saved=self._apres_parametres)
+        except Exception as exc:
+            self.ajouter_bulle("astat", f"Paramètres : {exc}")
+
+    def _check_backup_quotidienne(self):
+        try:
+            from core.backup import verifier_sauvegarde_quotidienne, besoin_sauvegarde_du_jour
+            if besoin_sauvegarde_du_jour():
+                verifier_sauvegarde_quotidienne(async_=True)
+                self.ajouter_bulle("astat", "Sauvegarde quotidienne en cours…")
+        except Exception as exc:
+            print(f"[backup] {exc}")
+
+    def _apres_parametres(self, relancer: bool = False):
+        try:
+            import config
+            self.ajouter_bulle(
+                "astat",
+                f"Paramètres OK — IA {config.NOM_IA}, PIN {config.REMOTE_PIN}, ville {config.VILLE_DEFAUT}.",
+            )
+            if hasattr(self, "toggle_button"):
+                self.toggle_button.configure(text=f"ÉCOUTE  « {config.MOT_MAGIQUE.upper()} »")
+        except Exception:
+            pass
+        if relancer:
+            self.root.after(400, self._relancer_astat)
 
     def _pin_under_apps(self):
         """Garde le HUD visible mais sous les autres fenêtres."""
@@ -747,6 +791,12 @@ class AstatApp:
             panel, text="⛶ Plein écran  (F11)", font=self.font_hud,
             fg_color=BG_PANEL2, hover_color=ACCENT_DIM, text_color=TEXT_SECONDARY,
             height=32, corner_radius=8, command=self._toggle_fullscreen,
+        ).pack(fill="x", padx=12, pady=4)
+
+        ctk.CTkButton(
+            panel, text="⚙ Paramètres  (F2)", font=self.font_hud,
+            fg_color=BG_PANEL2, hover_color=ACCENT_DIM, text_color=TEXT_SECONDARY,
+            height=32, corner_radius=8, command=self._ouvrir_parametres,
         ).pack(fill="x", padx=12, pady=4)
 
         ctk.CTkButton(

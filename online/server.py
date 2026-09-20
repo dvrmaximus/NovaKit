@@ -46,6 +46,7 @@ class RegisterBody(BaseModel):
     event: str = "inscription"
     when: str = ""
     pseudo: str = "Anonyme"
+    email: str = ""
     nom_ia: str = "?"
     ville: str = ""
     os: str = ""

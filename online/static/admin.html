@@ -103,7 +103,7 @@
           <table>
             <thead>
               <tr>
-                <th>#</th><th>Pseudo</th><th>IA</th><th>Ville</th><th>PC</th><th>Quand</th>
+                <th>#</th><th>Pseudo</th><th>E-mail</th><th>IA</th><th>Ville</th><th>PC</th><th>Quand</th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
@@ -156,12 +156,13 @@
         <tr>
           <td>${r.id}</td>
           <td>${esc(r.pseudo)}</td>
+          <td>${esc(r.email || "—")}</td>
           <td>${esc(r.nom_ia)}</td>
           <td>${esc(r.ville || "—")}</td>
           <td>${esc((r.os || "") + " " + (r.pc || ""))}</td>
           <td>${esc((r.when_utc || "").replace("T", " ").slice(0, 19))}</td>
         </tr>
-      `).join("") || `<tr><td colspan="6" style="color:var(--muted)">Aucune inscription pour l’instant.</td></tr>`;
+      `).join("") || `<tr><td colspan="7" style="color:var(--muted)">Aucune inscription pour l’instant.</td></tr>`;
     }
 
     function esc(s) {

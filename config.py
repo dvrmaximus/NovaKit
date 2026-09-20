@@ -132,40 +132,112 @@ Si on te parle sans ordre clair, réponds en conversation normale.
 INSTRUCTIONS_ASTAT = instructions_systeme()
 
 
+def lire_profil() -> dict:
+    """Lit le profil courant (.env + défauts)."""
+    load_dotenv(ENV_FILE, override=True)
+    return {
+        "nom_ia": _env("NOM_IA", "Nova") or "Nova",
+        "mot_magique": (_env("MOT_MAGIQUE") or _env("NOM_IA", "nova") or "nova").lower(),
+        "api_key": _env("GEMINI_API_KEY"),
+        "api_keys_extra": _env("GEMINI_API_KEYS"),
+        "voix": _env("VOIX_ASTAT", "fr-FR-DeniseNeural") or "fr-FR-DeniseNeural",
+        "voix_rate": _env("VOIX_RATE", "+20%") or "+20%",
+        "modele": _env("MODELE_GEMINI", "gemini-2.0-flash-lite") or "gemini-2.0-flash-lite",
+        "ville": _env("VILLE_DEFAUT", "Paris") or "Paris",
+        "port": _env("REMOTE_PORT", "8765") or "8765",
+        "pin": _env("REMOTE_PIN", "1234") or "1234",
+        "enable_tunnel": "true" if _env("ENABLE_TUNNEL", "true").lower() in ("1", "true", "yes", "oui") else "false",
+        "tunnel_mode": (_env("TUNNEL_MODE", "ngrok") or "ngrok").lower(),
+        "ngrok_token": _env("NGROK_AUTHTOKEN"),
+        "ngrok_domain": _env("NGROK_DOMAIN"),
+        "desktop_mode": "true" if _env("DESKTOP_MODE", "true").lower() in ("1", "true", "yes", "oui") else "false",
+        "desktop_monitor": _env("DESKTOP_MONITOR", "secondary") or "secondary",
+        "email": _env("USER_EMAIL"),
+        "pseudo": _env("USER_PSEUDO"),
+        "backup_daily": "true" if _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui") else "false",
+    }
+
+
 def ecrire_profil(valeurs: dict) -> None:
-    """Écrit le .env + drapeau setup depuis le wizard."""
+    """Écrit le .env + drapeau setup depuis le wizard / paramètres."""
+    actuel = lire_profil() if ENV_FILE.exists() else {}
+    merged = {**actuel, **{k: v for k, v in valeurs.items() if v is not None}}
     lignes = [
         f"# Profil {KIT_NAME} — généré automatiquement",
-        f"NOM_IA={valeurs.get('nom_ia', 'Nova')}",
-        f"MOT_MAGIQUE={valeurs.get('mot_magique', valeurs.get('nom_ia', 'nova')).lower()}",
-        f"GEMINI_API_KEY={valeurs.get('api_key', '')}",
-        f"GEMINI_API_KEYS={valeurs.get('api_keys_extra', '')}",
-        f"VOIX_ASTAT={valeurs.get('voix', 'fr-FR-DeniseNeural')}",
-        f"VOIX_RATE={valeurs.get('voix_rate', '+20%')}",
-        f"MODELE_GEMINI={valeurs.get('modele', 'gemini-2.0-flash-lite')}",
-        f"VILLE_DEFAUT={valeurs.get('ville', 'Paris')}",
-        f"REMOTE_PORT={valeurs.get('port', '8765')}",
-        f"REMOTE_PIN={valeurs.get('pin', '1234')}",
-        f"ENABLE_TUNNEL={valeurs.get('enable_tunnel', 'true')}",
-        f"TUNNEL_MODE={valeurs.get('tunnel_mode', 'ngrok')}",
-        f"NGROK_AUTHTOKEN={valeurs.get('ngrok_token', '')}",
-        f"NGROK_DOMAIN={valeurs.get('ngrok_domain', '')}",
-        f"DESKTOP_MODE={valeurs.get('desktop_mode', 'true')}",
-        f"DESKTOP_MONITOR={valeurs.get('desktop_monitor', 'secondary')}",
+        f"NOM_IA={merged.get('nom_ia', 'Nova')}",
+        f"MOT_MAGIQUE={merged.get('mot_magique', merged.get('nom_ia', 'nova')).lower()}",
+        f"GEMINI_API_KEY={merged.get('api_key', '')}",
+        f"GEMINI_API_KEYS={merged.get('api_keys_extra', '')}",
+        f"VOIX_ASTAT={merged.get('voix', 'fr-FR-DeniseNeural')}",
+        f"VOIX_RATE={merged.get('voix_rate', '+20%')}",
+        f"MODELE_GEMINI={merged.get('modele', 'gemini-2.0-flash-lite')}",
+        f"VILLE_DEFAUT={merged.get('ville', 'Paris')}",
+        f"REMOTE_PORT={merged.get('port', '8765')}",
+        f"REMOTE_PIN={merged.get('pin', '1234')}",
+        f"ENABLE_TUNNEL={merged.get('enable_tunnel', 'true')}",
+        f"TUNNEL_MODE={merged.get('tunnel_mode', 'ngrok')}",
+        f"NGROK_AUTHTOKEN={merged.get('ngrok_token', '')}",
+        f"NGROK_DOMAIN={merged.get('ngrok_domain', '')}",
+        f"DESKTOP_MODE={merged.get('desktop_mode', 'true')}",
+        f"DESKTOP_MONITOR={merged.get('desktop_monitor', 'secondary')}",
+        f"USER_EMAIL={merged.get('email', '')}",
+        f"USER_PSEUDO={merged.get('pseudo', '')}",
+        f"BACKUP_DAILY={merged.get('backup_daily', 'true')}",
         "",
     ]
     ENV_FILE.write_text("\n".join(lignes), encoding="utf-8")
     SETUP_FLAG.write_text("ok", encoding="utf-8")
+    mon = str(merged.get("desktop_monitor") or "secondary")
+    try:
+        (DATA_DIR / "desktop_monitor.txt").write_text(mon, encoding="utf-8")
+    except Exception:
+        pass
+    recharger_globals()
+
+
+def recharger_globals() -> None:
+    """Recharge les variables module depuis le .env."""
     load_dotenv(ENV_FILE, override=True)
-    # Recharge les globals critiques
     global API_KEY, API_KEYS, NOM_IA, NOM_IA_AFFICHE, MOT_MAGIQUE
-    global VOIX_ASTAT, VILLE_DEFAUT, REMOTE_PIN, INSTRUCTIONS_ASTAT
+    global VOIX_ASTAT, VOIX_RATE, VILLE_DEFAUT, MODELE_GEMINI
+    global REMOTE_PIN, REMOTE_PORT, ENABLE_TUNNEL, TUNNEL_MODE
+    global DESKTOP_MODE, DESKTOP_MONITOR, INSTRUCTIONS_ASTAT
+    global NGROK_AUTHTOKEN, NGROK_DOMAIN, USER_EMAIL, USER_PSEUDO, BACKUP_DAILY
     API_KEY = _env("GEMINI_API_KEY")
     API_KEYS = [API_KEY] if API_KEY else []
+    for part in _env("GEMINI_API_KEYS").replace(";", ",").split(","):
+        k = part.strip()
+        if k and k not in API_KEYS:
+            API_KEYS.append(k)
     NOM_IA = _env("NOM_IA", "Nova") or "Nova"
     NOM_IA_AFFICHE = NOM_IA.upper()
     MOT_MAGIQUE = (_env("MOT_MAGIQUE") or NOM_IA).lower()
-    VOIX_ASTAT = _env("VOIX_ASTAT", "fr-FR-DeniseNeural")
-    VILLE_DEFAUT = _env("VILLE_DEFAUT", "Paris")
-    REMOTE_PIN = _env("REMOTE_PIN", "1234")
+    VOIX_ASTAT = _env("VOIX_ASTAT", "fr-FR-DeniseNeural") or "fr-FR-DeniseNeural"
+    VOIX_RATE = _env("VOIX_RATE", "+20%") or "+20%"
+    VILLE_DEFAUT = _env("VILLE_DEFAUT", "Paris") or "Paris"
+    MODELE_GEMINI = _env("MODELE_GEMINI", "gemini-2.0-flash-lite") or "gemini-2.0-flash-lite"
+    try:
+        REMOTE_PORT = int(_env("REMOTE_PORT", "8765") or "8765")
+    except ValueError:
+        REMOTE_PORT = 8765
+    REMOTE_PIN = _env("REMOTE_PIN", "1234") or "1234"
+    ENABLE_TUNNEL = _env("ENABLE_TUNNEL", "true").lower() in ("1", "true", "yes", "oui")
+    TUNNEL_MODE = (_env("TUNNEL_MODE", "ngrok") or "ngrok").lower()
+    NGROK_AUTHTOKEN = _env("NGROK_AUTHTOKEN")
+    NGROK_DOMAIN = _env("NGROK_DOMAIN")
+    DESKTOP_MODE = _env("DESKTOP_MODE", "true").lower() in ("1", "true", "yes", "oui")
+    _mon_file = DATA_DIR / "desktop_monitor.txt"
+    if _mon_file.exists():
+        DESKTOP_MONITOR = _mon_file.read_text(encoding="utf-8").strip() or "secondary"
+    else:
+        DESKTOP_MONITOR = _env("DESKTOP_MONITOR", "secondary") or "secondary"
+    USER_EMAIL = _env("USER_EMAIL")
+    USER_PSEUDO = _env("USER_PSEUDO")
+    BACKUP_DAILY = _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui")
     INSTRUCTIONS_ASTAT = instructions_systeme()
+
+
+# Init vars email / backup
+USER_EMAIL = _env("USER_EMAIL")
+USER_PSEUDO = _env("USER_PSEUDO")
+BACKUP_DAILY = _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui")

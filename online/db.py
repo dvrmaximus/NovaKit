@@ -43,6 +43,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS installs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pseudo TEXT,
+                email TEXT,
                 nom_ia TEXT,
                 ville TEXT,
                 os TEXT,
@@ -55,6 +56,10 @@ def init_db() -> None:
             );
             """
         )
+        # Migration douce si ancienne base sans colonne email
+        cols = {r[1] for r in c.execute("PRAGMA table_info(installs)").fetchall()}
+        if "email" not in cols:
+            c.execute("ALTER TABLE installs ADD COLUMN email TEXT")
 
 
 def _hash_password(password: str, salt: str) -> str:
@@ -159,11 +164,12 @@ def add_install(data: dict) -> int:
         cur = c.execute(
             """
             INSERT INTO installs
-            (pseudo, nom_ia, ville, os, pc, kit, version, when_utc, raw_json, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+            (pseudo, email, nom_ia, ville, os, pc, kit, version, when_utc, raw_json, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 (data.get("pseudo") or "")[:64],
+                (data.get("email") or "")[:120],
                 (data.get("nom_ia") or "")[:64],
                 (data.get("ville") or "")[:64],
                 (data.get("os") or "")[:32],

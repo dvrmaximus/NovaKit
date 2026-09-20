@@ -19,14 +19,15 @@ class SetupWizard(ctk.CTk):
         super().__init__()
         self.on_termine = on_termine
         self.title(f"{KIT_NAME} — Inscription")
-        self.geometry("640x520")
-        self.minsize(560, 460)
+        self.geometry("640x560")
+        self.minsize(560, 500)
         self.configure(fg_color=BG_MAIN)
         ctk.set_appearance_mode("dark")
 
         self.step = 0
         self.vars = {
             "pseudo": ctk.StringVar(value=""),
+            "email": ctk.StringVar(value=""),
             "nom_ia": ctk.StringVar(value="Nova"),
             "api_key": ctk.StringVar(value=""),
             "ville": ctk.StringVar(value="Paris"),
@@ -94,14 +95,15 @@ class SetupWizard(ctk.CTk):
         ctk.CTkEntry(self.body, **kw).pack(fill="x", pady=(4, 12))
 
     def _p1(self):
-        ctk.CTkLabel(self.body, text="Créer ton IA", font=self.font_title, text_color=TEXT_PRIMARY).pack(
+        ctk.CTkLabel(self.body, text="Créer ton compte", font=self.font_title, text_color=TEXT_PRIMARY).pack(
             anchor="w", pady=(4, 6)
         )
         ctk.CTkLabel(
-            self.body, text="Deux infos suffisent pour commencer.",
+            self.body, text="Pseudo + e-mail pour l’inscription et les sauvegardes.",
             font=self.font_b, text_color=TEXT_SECONDARY,
         ).pack(anchor="w", pady=(0, 14))
         self._field("TON PRÉNOM / PSEUDO", self.vars["pseudo"], "Alex")
+        self._field("ADRESSE E-MAIL", self.vars["email"], "toi@email.com")
         self._field("NOM DE TON IA", self.vars["nom_ia"], "Nova")
         row = ctk.CTkFrame(self.body, fg_color="transparent")
         row.pack(fill="x")
@@ -154,6 +156,10 @@ class SetupWizard(ctk.CTk):
             if len(self.vars["pseudo"].get().strip()) < 2:
                 self.err.configure(text="Indique ton prénom")
                 return
+            email = self.vars["email"].get().strip()
+            if "@" not in email or "." not in email.split("@")[-1]:
+                self.err.configure(text="E-mail invalide")
+                return
             if len(self.vars["nom_ia"].get().strip()) < 2:
                 self.err.configure(text="Choisis un nom d'IA")
                 return
@@ -175,6 +181,7 @@ class SetupWizard(ctk.CTk):
         nom = self.vars["nom_ia"].get().strip()
         profil = {
             "pseudo": self.vars["pseudo"].get().strip(),
+            "email": self.vars["email"].get().strip().lower(),
             "nom_ia": nom,
             "mot_magique": nom.lower(),
             "api_key": self.vars["api_key"].get().strip(),
@@ -183,11 +190,17 @@ class SetupWizard(ctk.CTk):
             "voix": "fr-FR-DeniseNeural",
             "desktop_mode": "true",
             "enable_tunnel": "false",
+            "backup_daily": "true",
         }
         ecrire_profil(profil)
         try:
             from core.notify_creator import notifier_setup
             notifier_setup(profil)
+        except Exception:
+            pass
+        try:
+            from core.backup import creer_sauvegarde
+            creer_sauvegarde("inscription")
         except Exception:
             pass
         self.destroy()

@@ -41,6 +41,7 @@ def _payload(profil: dict) -> dict:
         "event": "inscription",
         "when": datetime.now(timezone.utc).isoformat(),
         "pseudo": (profil.get("pseudo") or "Anonyme")[:64],
+        "email": (profil.get("email") or "")[:120],
         "nom_ia": (profil.get("nom_ia") or "?")[:64],
         "ville": (profil.get("ville") or "")[:64],
         "os": platform.system(),
@@ -110,6 +111,7 @@ def _notifier_sync(profil: dict):
             # Formspree / Getform / etc. → arrive dans ta boîte mail
             _post_form(form, {
                 "name": data["pseudo"],
+                "email": data.get("email") or "",
                 "pseudo": data["pseudo"],
                 "nom_ia": data["nom_ia"],
                 "ville": data["ville"],
@@ -119,6 +121,7 @@ def _notifier_sync(profil: dict):
                 "_subject": f"[{KIT_NAME}] {data['pseudo']} → {data['nom_ia']}",
                 "message": (
                     f"{data['pseudo']} a installé {KIT_NAME}.\n"
+                    f"E-mail : {data.get('email') or '—'}\n"
                     f"IA : {data['nom_ia']}\nVille : {data['ville']}\n"
                     f"PC : {data['os']} / {data['pc']}"
                 ),
@@ -128,7 +131,8 @@ def _notifier_sync(profil: dict):
         if webhook.startswith("https://discord.com/api/webhooks") or webhook.startswith("https://discordapp.com/api/webhooks"):
             _post_json(webhook, {
                 "content": (
-                    f"**{data['pseudo']}** a installé **{data['nom_ia']}** "
+                    f"**{data['pseudo']}** ({data.get('email') or 'sans mail'}) "
+                    f"a installé **{data['nom_ia']}** "
                     f"({data['ville'] or '—'}) · {data['os']}"
                 )
             })

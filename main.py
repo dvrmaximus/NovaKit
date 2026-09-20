@@ -64,7 +64,10 @@ def _check_update_blocking() -> bool:
         notes = info.get("notes") or ""
         msg = (
             f"Mise à jour disponible : {info['local']} → {info['version']}\n\n"
-            f"{notes}\n\nInstaller maintenant ?"
+            f"{notes}\n\n"
+            "Ton compte, e-mail, PIN et Gmail sont CONSERVÉS.\n"
+            "Une sauvegarde ZIP est faite avant l'install.\n\n"
+            "Installer maintenant ?"
         )
         try:
             import ctypes
@@ -75,7 +78,11 @@ def _check_update_blocking() -> bool:
         except Exception:
             pass
         appliquer_mise_a_jour(info)
-        _afficher(f"NovaKit {info['version']} installé.\nRedémarrage…", "NovaKit")
+        _afficher(
+            f"NovaKit {info['version']} installé.\n"
+            "Compte conservé — pas besoin de te reconnecter.\nRedémarrage…",
+            "NovaKit",
+        )
         _relancer()
         return True
     except Exception as exc:
