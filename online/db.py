@@ -94,10 +94,18 @@ def _hash_password(password: str, salt: str) -> str:
     ).hex()
 
 
-def ensure_admin(username: str = "Lutre", password: str | None = None) -> tuple[str, str, bool]:
+def ensure_admin(
+    username: str = "Lutre",
+    password: str | None = None,
+    *,
+    ecrire_fichier: bool = False,
+) -> tuple[str, str, bool]:
     """
     Crée le compte admin s'il n'existe pas.
     Retourne (username, password_clair_si_nouveau_sinon_vide, created).
+
+    ecrire_fichier=True uniquement pour les outils créateur (écrit
+    data/admin_credentials.txt — marqueur du mode créateur dans l'UI).
     """
     init_db()
     with _conn() as c:
@@ -112,7 +120,8 @@ def ensure_admin(username: str = "Lutre", password: str | None = None) -> tuple[
             "INSERT INTO admin (id, username, password_hash, salt, created_at) VALUES (1,?,?,?,?)",
             (username, ph, salt, time.time()),
         )
-        _ecrire_creds(username, pwd)
+        if ecrire_fichier:
+            _ecrire_creds(username, pwd)
         return username, pwd, True
 
 

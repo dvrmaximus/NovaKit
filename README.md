@@ -1,79 +1,65 @@
 # NovaKit
 
-HUD type Jarvis **à partager** : inscription simple + discussion avec ton IA + **MAJ auto**.
+HUD type Jarvis **à partager** — inscription simple, discussion avec ton IA, mises à jour auto.
 
-## Installation recommandée (source GitHub)
+---
 
-1. Sur [github.com/dvrmaximus/NovaKit](https://github.com/dvrmaximus/NovaKit) → **Code** → **Download ZIP**
-2. Dézippe le dossier quelque part (ex. Bureau)
-3. Double-clique **`install.bat`** (installe les dépendances Python)
-4. Double-clique **`Lancer NovaKit.bat`**
+## Installation (3 étapes)
 
-Prérequis : [Python 3](https://www.python.org/downloads/) avec l’option **Add python.exe to PATH**.
+### 1. Télécharge
 
-Ne télécharge **pas** un `.exe` au hasard : le ZIP source + les `.bat` ci-dessus est le chemin prévu pour les potes.
+Sur [github.com/dvrmaximus/NovaKit](https://github.com/dvrmaximus/NovaKit) → **Code** → **Download ZIP**  
+Dézippe le dossier où tu veux (Bureau, Documents…).
 
-## Application Windows (optionnel, créateur)
+### 2. Installe
 
-Si tu veux un `.exe` local (PyInstaller) :
+Double-clique **`Installer NovaKit.bat`**
 
-1. `Build Application.bat` → crée `dist\NovaKit\NovaKit.exe` (non versionné, non signé)
-2. `Installer Application.bat` → installe dans `%LOCALAPPDATA%\Programs\NovaKit`
-3. Raccourci **NovaKit** sur le Bureau + Menu Démarrer
+- Vérifie Python  
+- Installe les dépendances  
+- Propose de lancer l’app  
 
-L’exe non signé peut être signalé par Windows / antivirus : préfère le ZIP source pour partager.
+Prérequis : [Python 3](https://www.python.org/downloads/) avec **Add python.exe to PATH**.
+
+### 3. Lance
+
+Double-clique **`Lancer NovaKit.bat`**
+
+Au **premier lancement**, un assistant te demande ton pseudo, le nom de ton IA, et une [clé Google Gemini](https://aistudio.google.com/apikey) (gratuite).
+
+---
+
+Guide visuel (ouvrir dans le navigateur) : [`docs/index.html`](docs/index.html)
+
+> Ne télécharge **pas** un `.exe` au hasard : le ZIP + ces deux `.bat` est le chemin prévu.
+
+---
 
 ## Si Windows dit « virus »
 
-C’est en général un **faux positif**. NovaKit est du Python open-source : pas de voleur de mots de passe, pas de payload téléchargé en secret. Les outils de type kit (`.bat`, scripts, éventuellement un `.exe` PyInstaller non signé) ressemblent parfois à des droppers pour SmartScreen / Defender.
+Faux positif fréquent sur les kits open-source (`.bat`, scripts).
 
-**Quoi faire :**
+1. Utilise le ZIP de **ce** dépôt uniquement.  
+2. SmartScreen → **Plus d’infos** → **Exécuter quand même**.  
+3. Optionnel : exclusion Defender sur le dossier que **toi** as dézippé.
 
-1. Préfère **Download ZIP** de la branche `main`, puis `install.bat` + `Lancer NovaKit.bat` (pas un exe trouvé ailleurs).
-2. Si SmartScreen s’affiche : **Plus d’infos** → **Exécuter quand même** / **Autoriser**.
-3. Après installation / dézip, tu peux ajouter le dossier NovaKit en **exclusion** Windows Defender (Paramètres → Virus et menaces → Exclusions) si les alertes insistent — uniquement pour un dossier que **tu** as choisi et dont tu connais la provenance (ce dépôt).
-4. Vérifie l’URL : `https://github.com/dvrmaximus/NovaKit` uniquement.
+---
 
-## Pour toi (créateur) — système online + admin
-
-1. Double-clique **`Lancer Systeme Online.bat`**
-2. Un compte admin **Lutre** est créé (mot de passe dans `data/admin_credentials.txt`)
-3. Un tunnel public s’ouvre → panel web des installations
-4. L’URL est écrite dans `creator.json` (`online_api_url`) pour que les potes s’inscrivent chez toi
-
-Laisse la fenêtre ouverte pour rester en ligne.
-
-Optionnel : **`Configurer Notifs.bat`** pour Formspree (mail) + lien `version.json` GitHub.
-
-### Mises à jour auto
-Sur GitHub, mets à jour `version.json` :
-
-```json
-{
-  "version": "1.1.0",
-  "zip_url": "https://github.com/dvrmaximus/NovaKit/archive/refs/heads/main.zip",
-  "notes": "Améliorations HUD"
-}
-```
-
-Quand tu publies une nouvelle version, au prochain lancement tes potes voient « Installer la mise à jour ? » — leurs `.env` et données sont **gardés**.
-
-## Fichiers utiles
+## Fichiers utiles (pour toi)
 
 | Fichier | Rôle |
 |---------|------|
-| `install.bat` | Dépendances Python |
-| `Lancer NovaKit.bat` | Lance l’app (source) |
-| `Installer Application.bat` | Installe l’app + raccourcis (après build) |
-| `Build Application.bat` | Reconstruit le `.exe` local |
-| `Lancer Systeme Online.bat` | Panel admin + tunnel public |
-| `Configurer Notifs.bat` | Liens mail / MAJ / online |
-| `version.json` | Version locale / modèle à publier |
-| `creator.json` | Config sauvegardée |
-| `Reset Setup.bat` | Refaire l’inscription |
+| `Installer NovaKit.bat` | Installation guidée |
+| `Lancer NovaKit.bat` | Lance l’app |
+| `docs/index.html` | Page d’aide install |
+| `version.json` | Version / MAJ auto |
 
-## Important
+Ne partage **jamais** ton `.env` ni le dossier `data/`.
 
-- Ne partage **jamais** ton `.env` ni le dossier `data/`
-- Tu peux (et dois) partager `creator.json` **avec** tes liens Formspree / update
-- Les fichiers `.vbs`, `.lnk` et `.exe` ne sont pas dans le dépôt (évite les faux positifs)
+---
+
+## English (short)
+
+1. Download ZIP from GitHub  
+2. Run `Installer NovaKit.bat`  
+3. Run `Lancer NovaKit.bat` — first launch opens the setup wizard (Gemini API key needed)

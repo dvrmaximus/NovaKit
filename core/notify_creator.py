@@ -115,10 +115,9 @@ def _notifier_sync(profil: dict):
     ok = False
     detail = []
 
-    # Toujours enregistrer en local pour le panel admin créateur
+    # Journal local (sans créer admin_credentials.txt — réservé au créateur)
     try:
-        from online.db import add_install, ensure_admin
-        ensure_admin("Lutre", "LutreAdmin")
+        from online.db import add_install
         add_install(data)
         ok = True
         detail.append("local_db")

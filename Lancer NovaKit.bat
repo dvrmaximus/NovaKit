@@ -37,7 +37,7 @@ echo.
 echo  Python introuvable.
 echo  1. Installe Python 3 depuis https://www.python.org/downloads/
 echo     (coche "Add python.exe to PATH")
-echo  2. Relance install.bat
+echo  2. Relance "Installer NovaKit.bat"
 echo  3. Puis ce fichier : Lancer NovaKit.bat
 echo.
 pause

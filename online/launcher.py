@@ -90,7 +90,11 @@ def _tunnel() -> str | None:
 
 def main():
     DATA_DIR.mkdir(exist_ok=True)
-    user, pwd, created = ensure_admin("Lutre")
+    user, pwd, created = ensure_admin("Lutre", "LutreAdmin", ecrire_fichier=True)
+    if not CREDS_FILE.exists():
+        from online.db import set_admin_password
+        set_admin_password("Lutre", "LutreAdmin")
+        user, pwd, created = "Lutre", "LutreAdmin", True
 
     # Serveur uvicorn dans un thread
     def _run():

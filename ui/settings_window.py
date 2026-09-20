@@ -412,9 +412,10 @@ class SettingsWindow(ctk.CTkToplevel):
         self._heading(sc, "Admin créateur", "Pilotage utilisateurs & IA")
         ctk.CTkLabel(
             sc,
-            text="Lutre / LutreAdmin — utilisateurs & pilotage IA",
+            text="Panel local — identifiants dans data/admin_credentials.txt",
             font=mono(10), text_color=theme.TEXT_MUTED,
         ).pack(anchor="w", pady=(0, 10))
+
         ctk.CTkButton(
             sc, text="Ouvrir le panel", height=40, corner_radius=8,
             font=mono(12, True), fg_color=theme.ACCENT_DIM, hover_color=theme.LINE,

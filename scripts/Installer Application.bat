@@ -1,12 +1,12 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+cd /d "%~dp0.."
 title NovaKit — Installer l'application
-set "SRC=%~dp0dist\NovaKit"
+set "SRC=%CD%\dist\NovaKit"
 set "DEST=%LOCALAPPDATA%\Programs\NovaKit"
 
 if not exist "%SRC%\NovaKit.exe" (
-  echo Build manquant. Lance d'abord "Build Application.bat"
+  echo Build manquant. Lance d'abord "scripts\Build Application.bat"
   pause
   exit /b 1
 )
@@ -25,9 +25,9 @@ if errorlevel 8 (
 )
 
 REM Raccourcis Bureau + Menu Demarrer
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\create_shortcuts.ps1" -ExePath "%DEST%\NovaKit.exe" -IconPath "%DEST%\assets\novakit.ico"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\create_shortcuts.ps1" -ExePath "%DEST%\NovaKit.exe" -IconPath "%DEST%\assets\novakit.ico"
 if errorlevel 1 (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\create_shortcuts.ps1" -ExePath "%DEST%\NovaKit.exe"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\create_shortcuts.ps1" -ExePath "%DEST%\NovaKit.exe"
 )
 
 echo.

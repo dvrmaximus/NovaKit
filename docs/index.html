@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NovaKit — Installation</title>
+  <style>
+    :root {
+      --bg-void: #07090E;
+      --bg-deep: #0B0E14;
+      --bg-main: #10141C;
+      --bg-panel: #151A24;
+      --accent: #4EC9D4;
+      --accent-soft: #7AD4DC;
+      --accent-dim: #1A4A52;
+      --accent-glow: #0F2A30;
+      --text: #E8EEF5;
+      --text2: #9AA8B8;
+      --muted: #5C6A7A;
+      --line: #1E2736;
+      --success: #6BB89A;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", "Cascadia Code", "Consolas", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, var(--accent-glow), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 80%, #121820, transparent 50%),
+        linear-gradient(165deg, var(--bg-void), var(--bg-main) 45%, var(--bg-deep));
+      line-height: 1.55;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    .brand {
+      font-size: 0.75rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .lead {
+      color: var(--text2);
+      font-size: 1.05rem;
+      max-width: 36em;
+      margin-bottom: 28px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+    a.btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: 1px solid var(--accent);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    a.btn-primary {
+      background: var(--accent-dim);
+      color: var(--accent-soft);
+    }
+    a.btn-primary:hover {
+      background: var(--accent);
+      color: var(--bg-void);
+    }
+    a.btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border-color: var(--line);
+    }
+    a.btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent-soft);
+    }
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px 26px;
+      margin-bottom: 20px;
+    }
+    .panel h2 {
+      font-size: 0.8rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    ol.steps {
+      list-style: none;
+      counter-reset: step;
+    }
+    ol.steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 14px 0 14px 52px;
+      border-bottom: 1px solid var(--line);
+    }
+    ol.steps li:last-child { border-bottom: none; padding-bottom: 0; }
+    ol.steps li:first-child { padding-top: 0; }
+    ol.steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    ol.steps li:first-child::before { top: 0; }
+    ol.steps strong { color: var(--text); }
+    ol.steps span { color: var(--text2); display: block; font-size: 0.92rem; margin-top: 4px; }
+    .need {
+      display: grid;
+      gap: 12px;
+    }
+    @media (min-width: 560px) {
+      .need { grid-template-columns: 1fr 1fr; }
+    }
+    .need div {
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: var(--bg-deep);
+      border: 1px solid var(--line);
+    }
+    .need h3 {
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+      color: var(--accent-soft);
+    }
+    .need p { font-size: 0.88rem; color: var(--muted); }
+    code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.88em;
+      color: var(--accent-soft);
+      background: var(--bg-deep);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    footer {
+      margin-top: 36px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="brand">NovaKit</p>
+    <h1>Installer en 3 étapes</h1>
+    <p class="lead">
+      HUD type Jarvis à partager. Télécharge le ZIP GitHub, lance l’installateur,
+      puis crée ton IA au premier démarrage.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/dvrmaximus/NovaKit/archive/refs/heads/main.zip">
+        Télécharger depuis GitHub
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/dvrmaximus/NovaKit">
+        Voir le dépôt
+      </a>
+      <a class="btn btn-ghost" href="https://aistudio.google.com/apikey">
+        Clé Gemini
+      </a>
+    </div>
+
+    <section class="panel">
+      <h2>Chemin recommandé</h2>
+      <ol class="steps">
+        <li>
+          <strong>Télécharge &amp; dézippe</strong>
+          <span>Sur GitHub → Code → Download ZIP, puis dézippe sur ton PC (Bureau, Documents…).</span>
+        </li>
+        <li>
+          <strong>Double-clique <code>Installer NovaKit.bat</code></strong>
+          <span>Vérifie Python, installe les dépendances, puis propose de lancer l’app.</span>
+        </li>
+        <li>
+          <strong>Lance <code>Lancer NovaKit.bat</code></strong>
+          <span>Au premier lancement, l’assistant te guide (pseudo, nom d’IA, clé Gemini).</span>
+        </li>
+      </ol>
+    </section>
+
+    <section class="panel">
+      <h2>Ce dont tu as besoin</h2>
+      <div class="need">
+        <div>
+          <h3>Python 3</h3>
+          <p>Depuis python.org — coche <em>Add python.exe to PATH</em>.</p>
+        </div>
+        <div>
+          <h3>Clé Google Gemini</h3>
+          <p>Gratuite via Google AI Studio — demandée au premier lancement.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Astuce</h2>
+      <p style="color: var(--text2); font-size: 0.95rem;">
+        Préfère le ZIP source + les <code>.bat</code> plutôt qu’un exe trouvé ailleurs.
+        Si Windows SmartScreen s’affiche : Plus d’infos → Exécuter quand même.
+      </p>
+    </section>
+
+    <footer>
+      <a href="https://github.com/dvrmaximus/NovaKit">github.com/dvrmaximus/NovaKit</a>
+      · graphite &amp; cyan · open source
+    </footer>
+  </div>
+</body>
+</html>

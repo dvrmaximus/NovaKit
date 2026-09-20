@@ -25,12 +25,13 @@ ADMIN_PASS = "LutreAdmin"
 
 
 def est_createur() -> bool:
-    """True uniquement pour le créateur (Lutre / admin / credentials locaux)."""
+    """True uniquement si le panel admin a été initialisé en local.
+
+    Le fichier data/admin_credentials.txt (gitignoré) est créé par les
+    outils dans creator/ — jamais par le simple téléchargement GitHub.
+    Ne pas se baser sur creator.json (partagé avec les potes).
+    """
     try:
-        from core.notify_creator import charger_creator
-        cfg = charger_creator()
-        if (cfg.get("creator_name") or "").lower() in ("lutre", "admin"):
-            return True
         return (DATA_DIR / "admin_credentials.txt").exists()
     except Exception:
         return False

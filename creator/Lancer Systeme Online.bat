@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+cd /d "%~dp0.."
 title NovaKit — Systeme Online
-set PYTHONPATH=%~dp0
+set PYTHONPATH=%CD%
 echo Lancement du panel admin + tunnel public...
 echo Laisse cette fenetre ouverte.
 echo.

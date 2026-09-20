@@ -31,7 +31,8 @@ COOKIE = "novakit_admin"
 PORT = 8788
 
 app = FastAPI(title="NovaKit Online", docs_url=None, redoc_url=None)
-ensure_admin()
+# Compte DB sans fichier credentials (le fichier = mode créateur UI)
+ensure_admin(ecrire_fichier=False)
 
 ACTIONS_OK = {"message", "speak", "ping", "status"}
 
