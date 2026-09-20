@@ -18,7 +18,15 @@ except ImportError:
 from tools.reminders_tools import creer_rappel, lister_rappels
 from tools.system_tools import ouvrir_application
 from tools.weather_tools import obtenir_meteo
-from tools.web_tools import ouvrir_site_web
+from tools.web_tools import ouvrir_site_web, ouvrir_youtube
+
+try:
+    from tools.discord_tools import (
+        connecter_discord, envoyer_webhook_discord, ouvrir_lien_discord,
+    )
+    _DISCORD_TOOLS = [connecter_discord, ouvrir_lien_discord, envoyer_webhook_discord]
+except ImportError:
+    _DISCORD_TOOLS = []
 
 ALL_TOOLS = [
     obtenir_heure_actuelle,
@@ -26,6 +34,7 @@ ALL_TOOLS = [
     calculer,
     ouvrir_application,
     ouvrir_site_web,
+    ouvrir_youtube,
     lire_derniers_mails,
     connecter_gmail,
     deconnecter_gmail,
@@ -36,7 +45,7 @@ ALL_TOOLS = [
     lister_rappels,
     lire_presse_papier,
     ecrire_presse_papier,
-] + _PC_TOOLS
+] + _PC_TOOLS + _DISCORD_TOOLS
 
 try:
     from tools.web_tools import rechercher_sur_internet

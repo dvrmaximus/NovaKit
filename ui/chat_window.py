@@ -30,12 +30,12 @@ class ChatWindow(ctk.CTkToplevel):
         head.pack(fill="x")
         head.pack_propagate(False)
         ctk.CTkLabel(
-            head, text=f"◈ {NOM_IA_AFFICHE}", font=mono(18, True), text_color=ACCENT,
+            head, text=NOM_IA_AFFICHE, font=mono(16, True), text_color=TEXT_PRIMARY,
         ).pack(side="left", padx=16, pady=12)
         ctk.CTkLabel(
-            head, text="DISCUSSION LIBRE", font=mono(10), text_color=TEXT_MUTED,
+            head, text="Discussion", font=mono(10), text_color=TEXT_MUTED,
         ).pack(side="left", pady=18)
-        self.status = ctk.CTkLabel(head, text="prêt", font=mono(10), text_color=ACCENT_SOFT)
+        self.status = ctk.CTkLabel(head, text="prêt", font=mono(10), text_color=TEXT_MUTED)
         self.status.pack(side="right", padx=16)
 
         self.zone = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -49,16 +49,16 @@ class ChatWindow(ctk.CTkToplevel):
         self.entry = ctk.CTkEntry(
             inner,
             placeholder_text=f"Parle à {NOM_IA}…",
-            height=40, corner_radius=10,
-            fg_color=BG_INPUT, border_color=ACCENT_DIM, text_color=TEXT_PRIMARY,
+            height=36, corner_radius=8,
+            fg_color=BG_INPUT, border_color=LINE, text_color=TEXT_PRIMARY,
             font=ctk.CTkFont(family="Segoe UI", size=13),
         )
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.entry.bind("<Return>", self._envoyer)
         ctk.CTkButton(
-            inner, text="ENVOYER", width=100, height=40, corner_radius=10,
-            font=mono(11, True), fg_color=ACCENT_DIM, hover_color=ACCENT,
-            text_color=BG_DEEP, command=self._envoyer,
+            inner, text="Envoyer", width=90, height=36, corner_radius=8,
+            font=mono(11), fg_color=ACCENT_DIM, hover_color=LINE,
+            text_color=TEXT_PRIMARY, command=self._envoyer,
         ).pack(side="left")
 
         self._bulle(
@@ -74,9 +74,9 @@ class ChatWindow(ctk.CTkToplevel):
         box.pack(fill="x", pady=5)
         ctk.CTkLabel(
             box,
-            text=NOM_IA_AFFICHE if est_ia else "TOI",
+            text=NOM_IA_AFFICHE if est_ia else "Toi",
             font=mono(9, True),
-            text_color=ACCENT if est_ia else TEXT_MUTED,
+            text_color=TEXT_SECONDARY if est_ia else TEXT_MUTED,
         ).pack(anchor="w" if est_ia else "e")
         bubble = ctk.CTkFrame(
             box,
@@ -124,8 +124,12 @@ class ChatWindow(ctk.CTkToplevel):
     def _ressemble_commande(msg: str) -> bool:
         t = msg.lower().strip()
         cles = (
-            "ouvre", "lance", "volume", "verrouill", "éteins", "eteins",
-            "meteo", "météo", "heure", "mail", "gmail", "capture", "veille",
+            "ouvre", "ouvrir", "lance", "lancer", "volume", "verrouill", "éteins", "eteins",
+            "meteo", "météo", "heure", "mail", "gmail", "google", "discord", "youtube",
+            "you tube", "capture", "veille", "connecte", "connecter", "lie mon", "lier ",
+            "spotify", "chrome", "steam", "envoie sur discord", "envoyer sur discord",
+            "liste utilisateur", "message a", "message à", "fais parler",
+            "ping ", "status ", "statut ",
         )
         return any(t.startswith(c) or f" {c}" in t for c in cles)
 

@@ -121,9 +121,12 @@ def instructions_systeme() -> str:
 Tu es {NOM_IA}, assistant Jarvis personnel. Français uniquement.
 Tu peux DISCUTER naturellement (salutations, questions, blagues légères) ET exécuter des actions PC.
 Réponses courtes : 1–3 phrases max. Pas de pavé.
-Utilise tes outils pour heure/météo/apps/mails/PC — n'invente pas de résultats d'outils.
-Pour ouvrir une app : outil ouvrir_application avec le nom exact.
-Confirme les actions en peu de mots ("Chrome ouvert.").
+Utilise tes outils pour heure/météo/apps/mails/PC/YouTube/Discord — n'invente pas de résultats d'outils.
+« Connecte Gmail / Google » → connecter_gmail. « Connecte Discord » → connecter_discord.
+YouTube avec recherche → ouvrir_youtube. Jeux / apps → ouvrir_application.
+Discord : ouvrir liens ; messages webhook seulement si configuré (envoyer_webhook_discord).
+Ne demande jamais de mot de passe Discord/Google dans le chat.
+Confirme les actions en peu de mots ("Chrome ouvert.", "YouTube ouvert.").
 Si on te parle sans ordre clair, réponds en conversation normale.
 """.strip()
 
@@ -155,6 +158,10 @@ def lire_profil() -> dict:
         "email": _env("USER_EMAIL"),
         "pseudo": _env("USER_PSEUDO"),
         "backup_daily": "true" if _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui") else "false",
+        "couleur_ia": _env("COULEUR_IA", "#4EC9D4") or "#4EC9D4",
+        "accent_hex": _env("COULEUR_IA", "#4EC9D4") or "#4EC9D4",
+        "accent_intensite": _env("ACCENT_INTENSITE", "1.0") or "1.0",
+        "discord_webhook": _env("DISCORD_WEBHOOK"),
     }
 
 
@@ -183,6 +190,9 @@ def ecrire_profil(valeurs: dict) -> None:
         f"USER_EMAIL={merged.get('email', '')}",
         f"USER_PSEUDO={merged.get('pseudo', '')}",
         f"BACKUP_DAILY={merged.get('backup_daily', 'true')}",
+        f"COULEUR_IA={merged.get('couleur_ia') or merged.get('accent_hex') or '#4EC9D4'}",
+        f"ACCENT_INTENSITE={merged.get('accent_intensite', '1.0')}",
+        f"DISCORD_WEBHOOK={merged.get('discord_webhook', '')}",
         "",
     ]
     ENV_FILE.write_text("\n".join(lignes), encoding="utf-8")
@@ -203,6 +213,7 @@ def recharger_globals() -> None:
     global REMOTE_PIN, REMOTE_PORT, ENABLE_TUNNEL, TUNNEL_MODE
     global DESKTOP_MODE, DESKTOP_MONITOR, INSTRUCTIONS_ASTAT
     global NGROK_AUTHTOKEN, NGROK_DOMAIN, USER_EMAIL, USER_PSEUDO, BACKUP_DAILY
+    global DISCORD_WEBHOOK
     API_KEY = _env("GEMINI_API_KEY")
     API_KEYS = [API_KEY] if API_KEY else []
     for part in _env("GEMINI_API_KEYS").replace(";", ",").split(","):
@@ -234,6 +245,7 @@ def recharger_globals() -> None:
     USER_EMAIL = _env("USER_EMAIL")
     USER_PSEUDO = _env("USER_PSEUDO")
     BACKUP_DAILY = _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui")
+    DISCORD_WEBHOOK = _env("DISCORD_WEBHOOK")
     INSTRUCTIONS_ASTAT = instructions_systeme()
 
 
@@ -241,3 +253,4 @@ def recharger_globals() -> None:
 USER_EMAIL = _env("USER_EMAIL")
 USER_PSEUDO = _env("USER_PSEUDO")
 BACKUP_DAILY = _env("BACKUP_DAILY", "true").lower() in ("1", "true", "yes", "oui")
+DISCORD_WEBHOOK = _env("DISCORD_WEBHOOK")

@@ -59,17 +59,37 @@ def gmail_est_connecte() -> bool:
     return False
 
 
+def _marquer_connexion_demandee():
+    try:
+        (DATA_DIR / "gmail_connect.flag").write_text("1", encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _ouvrir_gmail_navigateur() -> str:
+    """Sans OAuth : ouvre Gmail / compte Google dans le navigateur."""
+    import webbrowser
+    _marquer_connexion_demandee()
+    webbrowser.open("https://accounts.google.com/AccountChooser?continue=https://mail.google.com")
+    return (
+        "J'ouvre Gmail dans le navigateur — connecte-toi avec ton compte Google. "
+        "Pour lire les mails depuis Nova, place un credentials.json Google OAuth "
+        "à la racine du dossier, puis redis « connecte Gmail »."
+    )
+
+
 def connecter_gmail(forcer: bool = False) -> str:
-    """Connecte Gmail une fois. Ensuite le token se renouvelle tout seul."""
+    """Connecte Gmail une fois (OAuth). Sinon ouvre Gmail dans le navigateur."""
     global _service_gmail
     if not forcer and gmail_est_connecte():
         return "Gmail est déjà connecté. Tu restes connecté même après un redémarrage."
 
     chemin = _trouver_credentials()
     if not chemin:
-        return "Fichier client_secret Google introuvable dans le dossier astat."
+        return _ouvrir_gmail_navigateur()
 
     try:
+        _marquer_connexion_demandee()
         flow = InstalledAppFlow.from_client_secrets_file(str(chemin), GMAIL_SCOPES)
         creds = flow.run_local_server(port=0, prompt="consent")
         _sauver_token(creds)
@@ -80,10 +100,15 @@ def connecter_gmail(forcer: bool = False) -> str:
         msg = str(erreur)
         if "access_denied" in msg or "403" in msg:
             return (
-                "Google bloque encore : ajoute lutreaumaxens@gmail.com "
-                "comme utilisateur test (voir Debloquer Gmail Astat sur le bureau)."
+                "Google bloque encore : ajoute ton adresse "
+                "comme utilisateur test dans la console Google Cloud, "
+                "puis redis « connecte Gmail »."
             )
-        return f"Connexion Gmail impossible : {erreur}"
+        # Dernier recours : login web
+        try:
+            return _ouvrir_gmail_navigateur() + f" (OAuth : {erreur})"
+        except Exception:
+            return f"Connexion Gmail impossible : {erreur}"
 
 
 def deconnecter_gmail() -> str:

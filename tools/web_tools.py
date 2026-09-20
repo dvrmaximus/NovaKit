@@ -1,4 +1,5 @@
 import webbrowser
+from urllib.parse import quote_plus
 
 SITES_CONNUS = {
     "youtube": "https://www.youtube.com",
@@ -9,6 +10,9 @@ SITES_CONNUS = {
     "netflix": "https://www.netflix.com",
     "twitter": "https://x.com",
     "github": "https://github.com",
+    "facebook": "https://www.facebook.com",
+    "reddit": "https://www.reddit.com",
+    "discord": "https://discord.com/app",
 }
 
 
@@ -23,7 +27,22 @@ def ouvrir_site_web(nom_ou_url: str) -> str:
     if url is None:
         url = nom_ou_url if nom_ou_url.startswith("http") else f"https://{nom_ou_url}"
     webbrowser.open(url)
-    return f"J'ouvre {nom_ou_url}."
+    libelle = nom_ou_url if nom_ou_url.startswith("http") else nom_ou_url.strip().title()
+    return f"J'ouvre {libelle}."
+
+
+def ouvrir_youtube(requete: str = "") -> str:
+    """Ouvre YouTube, éventuellement avec une recherche.
+
+    Args:
+        requete: texte à chercher (vide = page d'accueil)
+    """
+    q = (requete or "").strip()
+    if q:
+        webbrowser.open(f"https://www.youtube.com/results?search_query={quote_plus(q)}")
+        return f"YouTube — recherche « {q} »."
+    webbrowser.open("https://www.youtube.com")
+    return "J'ouvre YouTube."
 
 
 def rechercher_sur_internet(requete: str) -> str:
