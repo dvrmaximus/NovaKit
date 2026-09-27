@@ -13,11 +13,11 @@ from core import perf_boost
 from core.perf_monitor import format_net, snapshot
 from ui.hud_widgets import SectionTitle, mono
 from ui.mode_shell import CORNER, HudModePanel, labeled_slider, labeled_switch
-from ui.perf_widgets import MetricCard
+from ui.perf_widgets import CARD_BG, MetricCard, SuiviSidebar
 
-# Couleurs series (CPU vert fixe ; GPU = accent utilisateur ; FPS cyan/blanc)
-CPU_COLOR = "#4FD66A"
-FPS_COLOR = "#C8E8F0"
+# Couleurs series (CPU vert AMD ; GPU = accent utilisateur ; FPS cyan)
+CPU_COLOR = "#76B900"
+FPS_COLOR = "#A8C5D0"
 RAM_COLOR = "#5B9CF5"
 
 
@@ -70,8 +70,8 @@ class PerfPanel(HudModePanel):
             title="Performance",
             nav=[
                 ("mesures", "Mesures"),
-                ("reglage", "Reglage"),
-                ("parametres", "Parametres"),
+                ("reglage", "Réglage"),
+                ("parametres", "Paramètres"),
             ],
             **kw,
         )
@@ -81,7 +81,6 @@ class PerfPanel(HudModePanel):
         self._settings_ready = True
         self._sync_boost_status_ui()
         if self.v_mode_perf.get() and not perf_boost.is_active():
-            # Pref persistee : reactiver au premier affichage
             self.after(200, self._apply_boost_from_toggle)
 
     # —— lifecycle ——
@@ -112,7 +111,6 @@ class PerfPanel(HudModePanel):
             return
         self._refresh()
         hz = float(self._cfg.get("refresh_hz", 1.5) or 1.5)
-        # Mode Performance : ralentir un peu le polling Astat
         if perf_boost.is_active():
             hz = min(hz, 1.0)
         delay = max(280, int(1000 / max(0.5, hz)))
@@ -122,37 +120,69 @@ class PerfPanel(HudModePanel):
 
     def _build_mesures(self):
         page = self.page("mesures")
-        scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
-        scroll.pack(fill="both", expand=True)
+        root = ctk.CTkFrame(page, fg_color="transparent")
+        root.pack(fill="both", expand=True)
+
+        # Colonne cartes + Suivi cote a cote
+        body = ctk.CTkFrame(root, fg_color="transparent")
+        body.pack(fill="both", expand=True)
+
+        self._mesures_scroll = ctk.CTkScrollableFrame(
+            body, fg_color="transparent",
+        )
+        self._mesures_scroll.pack(side="left", fill="both", expand=True, padx=(0, 6))
+
         pts = int(self._cfg.get("history_points", 60))
         gpu_col = theme.ACCENT
 
-        self.card_fps = MetricCard(scroll, "FPS · HUD Astat")
-        self.card_fps.pack(fill="x", pady=3)
-        self.card_fps.add_row("fps", "Frequence d'image", color=FPS_COLOR, unit="FPS", ymax=240, max_points=pts)
-        self.card_fps.add_row("ft", "Duree d'image", color=FPS_COLOR, unit="ms", ymax=50, max_points=pts)
+        # Grille haute : FPS | CPU
+        top = ctk.CTkFrame(self._mesures_scroll, fg_color="transparent")
+        top.pack(fill="x", pady=(0, 4))
+        top.grid_columnconfigure(0, weight=1, uniform="top")
+        top.grid_columnconfigure(1, weight=1, uniform="top")
 
-        self.card_cpu = MetricCard(scroll, "CPU")
-        self.card_cpu.pack(fill="x", pady=3)
+        self.card_fps = MetricCard(top, "FPS · HUD Astat")
+        self.card_fps.grid(row=0, column=0, sticky="nsew", padx=(0, 3))
+        self.card_fps.add_row("fps", "Fréquence d'image", color=FPS_COLOR, unit="FPS", ymax=240, max_points=pts)
+        self.card_fps.add_row("ft", "Durée d'image", color=FPS_COLOR, unit="ms", ymax=50, max_points=pts)
+
+        self.card_cpu = MetricCard(top, "CPU")
+        self.card_cpu.grid(row=0, column=1, sticky="nsew", padx=(3, 0))
         self.card_cpu.add_row("util", "Utilisation", color=CPU_COLOR, unit="%", ymax=100, max_points=pts)
-        self.card_cpu.add_row("temp", "Temperature", color=CPU_COLOR, unit="°C", ymax=100, max_points=pts)
+        self.card_cpu.add_row("temp", "Température", color=CPU_COLOR, unit="°C", ymax=100, max_points=pts)
 
-        self.card_gpu = MetricCard(scroll, "GPU")
-        self.card_gpu.pack(fill="x", pady=3)
+        # GPU pleine largeur (comme Adrenalin)
+        self.card_gpu = MetricCard(self._mesures_scroll, "GPU")
+        self.card_gpu.pack(fill="x", pady=4)
         self.card_gpu.add_row("util", "Utilisation", color=gpu_col, unit="%", ymax=100, max_points=pts)
         self.card_gpu.add_row("power", "Consommation", color=gpu_col, unit="W", ymax=350, max_points=pts)
-        self.card_gpu.add_row("temp", "Temperature GPU", color=gpu_col, unit="°C", ymax=100, max_points=pts)
-        self.card_gpu.add_row("vram", "Memoire GPU", color=gpu_col, unit="%", ymax=100, max_points=pts)
+        self.card_gpu.add_row("temp", "Température", color=gpu_col, unit="°C", ymax=100, max_points=pts)
+        self.card_gpu.add_row("vram", "Mémoire GPU", color=gpu_col, unit="%", ymax=100, max_points=pts)
 
-        self.card_ram = MetricCard(scroll, "Memoire systeme")
-        self.card_ram.pack(fill="x", pady=3)
+        self.card_ram = MetricCard(self._mesures_scroll, "Mémoire système")
+        self.card_ram.pack(fill="x", pady=4)
         self.card_ram.add_row("util", "Utilisation", color=RAM_COLOR, unit="%", ymax=100, max_points=pts)
 
         self.mesures_foot = ctk.CTkLabel(
-            scroll, text="", font=mono(8), text_color=theme.TEXT_MUTED,
-            justify="left", wraplength=self._wrap,
+            self._mesures_scroll, text="", font=mono(8), text_color="#666666",
+            justify="left", wraplength=max(160, self._wrap - 140),
         )
         self.mesures_foot.pack(anchor="w", pady=(6, 0))
+
+        # Sidebar Suivi
+        toggles = [
+            ("fps", self.v_show_fps, "FPS"),
+            ("cpu", self.v_show_cpu, "CPU"),
+            ("gpu", self.v_show_gpu, "GPU"),
+            ("ram", self.v_show_ram, "RAM"),
+            ("temps", self.v_show_temps, "Temp."),
+            ("disk", self.v_show_disk, "Disque"),
+            ("net", self.v_show_net, "Réseau"),
+        ]
+        self.suivi = SuiviSidebar(
+            body, toggles=toggles, hz_var=self.v_hz, on_change=self._persist_settings,
+        )
+        self.suivi.pack(side="right", fill="y")
 
     # —— Reglage (Mode Performance + Conseiller) ——
 
@@ -164,8 +194,8 @@ class PerfPanel(HudModePanel):
         SectionTitle(scroll, "Mode Performance").pack(fill="x", pady=(0, 6))
         ctk.CTkLabel(
             scroll,
-            text="Optimisations OS sures : plan Haute perf, Mode Jeu, anti-lag Astat "
-                 "(charge fond). Pas de controle driver AMD Anti-Lag.",
+            text="Optimisations OS sûres : plan Haute perf, Mode Jeu, anti-lag Astat "
+                 "(charge fond). Pas de contrôle driver AMD Anti-Lag.",
             font=mono(8), text_color=theme.TEXT_MUTED,
             justify="left", wraplength=self._wrap,
         ).pack(anchor="w", pady=(0, 6))
@@ -179,7 +209,7 @@ class PerfPanel(HudModePanel):
             command=self._persist_settings,
         ).pack(fill="x", pady=2)
         labeled_switch(
-            scroll, "Baisser priorite apps cochees", self.v_boost_bg,
+            scroll, "Baisser priorité apps cochées", self.v_boost_bg,
             command=self._persist_settings,
         ).pack(fill="x", pady=2)
 
@@ -197,19 +227,18 @@ class PerfPanel(HudModePanel):
 
         ctk.CTkLabel(
             scroll,
-            text="Astuce : ne tue aucun processus systeme — priorite basse uniquement.",
+            text="Astuce : ne tue aucun processus système — priorité basse uniquement.",
             font=mono(8), text_color=theme.TEXT_MUTED,
             justify="left", wraplength=self._wrap,
         ).pack(anchor="w", pady=(6, 10))
 
-        # Conseiller IA
         SectionTitle(scroll, "Conseiller IA").pack(fill="x", pady=(4, 6))
         self.score_lbl = ctk.CTkLabel(
             scroll, text="Score machine —", font=mono(12, True), text_color=theme.ACCENT_SOFT,
         )
         self.score_lbl.pack(anchor="w")
         self.profil_lbl = ctk.CTkLabel(
-            scroll, text="Profil recommande —", font=mono(9), text_color=theme.TEXT_SECONDARY,
+            scroll, text="Profil recommandé —", font=mono(9), text_color=theme.TEXT_SECONDARY,
         )
         self.profil_lbl.pack(anchor="w", pady=(0, 6))
 
@@ -246,34 +275,16 @@ class PerfPanel(HudModePanel):
         )
         self.tip_ia_lbl.pack(anchor="w", pady=(6, 0))
 
-        # Prefill score
         self.after(120, self._run_advisor_silent)
 
-    # —— Parametres (Suivi) ——
+    # —— Parametres ——
 
     def _build_parametres(self):
         page = self.page("parametres")
         scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
 
-        SectionTitle(scroll, "Suivi — visibilite").pack(fill="x", pady=(0, 6))
-        for var, txt in (
-            (self.v_show_fps, "FPS HUD"),
-            (self.v_show_cpu, "CPU"),
-            (self.v_show_gpu, "GPU / VRAM"),
-            (self.v_show_ram, "RAM"),
-            (self.v_show_disk, "Disque (pied de page)"),
-            (self.v_show_net, "Reseau (pied de page)"),
-            (self.v_show_temps, "Temperatures"),
-        ):
-            labeled_switch(scroll, txt, var, command=self._persist_settings).pack(fill="x", pady=2)
-
-        SectionTitle(scroll, "Echantillonnage & alertes").pack(fill="x", pady=(12, 6))
-        box, _ = labeled_slider(
-            scroll, "Intervalle (Hz)", self.v_hz, 0.5, 4.0,
-            command=self._persist_settings, fmt="{:.1f} Hz",
-        )
-        box.pack(fill="x", pady=4)
+        SectionTitle(scroll, "Alertes").pack(fill="x", pady=(0, 6))
         for var, txt in (
             (self.v_alert_cpu, "Alerte CPU (%)"),
             (self.v_alert_ram, "Alerte RAM (%)"),
@@ -295,6 +306,13 @@ class PerfPanel(HudModePanel):
                 scroll, text=f"· {tip}", font=mono(8), text_color=theme.TEXT_MUTED,
                 justify="left", wraplength=self._wrap, anchor="w",
             ).pack(fill="x", pady=1)
+
+        ctk.CTkLabel(
+            scroll,
+            text="Visibilité des mesures : colonne Suivi (onglet Mesures).",
+            font=mono(8), text_color="#666666",
+            justify="left", wraplength=self._wrap,
+        ).pack(anchor="w", pady=(12, 0))
 
     # —— Settings / boost ——
 
@@ -330,31 +348,53 @@ class PerfPanel(HudModePanel):
         for card in (self.card_fps, self.card_cpu, self.card_gpu, self.card_ram):
             card.set_max_points(pts)
         self._apply_card_visibility()
+        try:
+            self.suivi.sync_eyes([
+                ("fps", self.v_show_fps, "FPS"),
+                ("cpu", self.v_show_cpu, "CPU"),
+                ("gpu", self.v_show_gpu, "GPU"),
+                ("ram", self.v_show_ram, "RAM"),
+                ("temps", self.v_show_temps, "Temp."),
+                ("disk", self.v_show_disk, "Disque"),
+                ("net", self.v_show_net, "Réseau"),
+            ])
+        except Exception:
+            pass
         self.set_status("ok")
         if self._active:
             self._schedule_tick()
 
     def _apply_card_visibility(self):
         cfg = self._cfg
-        mapping = (
-            (self.card_fps, "show_fps"),
-            (self.card_cpu, "show_cpu"),
-            (self.card_gpu, "show_gpu"),
-            (self.card_ram, "show_ram"),
-        )
-        for card, key in mapping:
+        # FPS / CPU dans la grille top
+        try:
+            if cfg.get("show_fps", True):
+                self.card_fps.grid()
+            else:
+                self.card_fps.grid_remove()
+        except Exception:
+            pass
+        try:
+            if cfg.get("show_cpu", True):
+                self.card_cpu.grid()
+            else:
+                self.card_cpu.grid_remove()
+        except Exception:
+            pass
+        # GPU / RAM en pack
+        for card, key in ((self.card_gpu, "show_gpu"), (self.card_ram, "show_ram")):
             try:
                 card.pack_forget()
             except Exception:
                 pass
-        for card, key in mapping:
+        for card, key in ((self.card_gpu, "show_gpu"), (self.card_ram, "show_ram")):
             try:
                 if cfg.get(key, True):
-                    card.pack(fill="x", pady=3, before=self.mesures_foot)
+                    card.pack(fill="x", pady=4, before=self.mesures_foot)
             except Exception:
                 try:
                     if cfg.get(key, True):
-                        card.pack(fill="x", pady=3)
+                        card.pack(fill="x", pady=4)
                 except Exception:
                     pass
 
@@ -405,7 +445,7 @@ class PerfPanel(HudModePanel):
         pack = perf_advisor.build_advice(jeu)
         self._last_advice = pack
         self.score_lbl.configure(text=f"Score machine  {pack.score}/100")
-        self.profil_lbl.configure(text=f"Profil recommande : {pack.profil}")
+        self.profil_lbl.configure(text=f"Profil recommandé : {pack.profil}")
         self._render_advice_cards(pack)
         mode_settings.save({
             "perf": {
@@ -437,9 +477,9 @@ class PerfPanel(HudModePanel):
             except Exception:
                 pass
         self._advice_cards.clear()
-        for i, line in enumerate(pack.cartes + [f"A fermer : {', '.join(pack.a_fermer)}"]):
+        for i, line in enumerate(pack.cartes + [f"À fermer : {', '.join(pack.a_fermer)}"]):
             card = ctk.CTkFrame(
-                self.advice_box, fg_color=theme.BG_PANEL,
+                self.advice_box, fg_color=CARD_BG,
                 corner_radius=CORNER, border_width=1, border_color=theme.LINE,
             )
             card.pack(fill="x", pady=2)
@@ -448,7 +488,6 @@ class PerfPanel(HudModePanel):
                 justify="left", wraplength=self._wrap, anchor="w",
             ).pack(fill="x", padx=8, pady=6)
             self._advice_cards.append(card)
-            # Micro-animation : delai d'apparition
             card.pack_forget()
             self.after(40 * i, lambda c=card: self._safe_pack_advice(c))
 
@@ -480,7 +519,6 @@ class PerfPanel(HudModePanel):
     # —— Refresh ——
 
     def update_from_snap(self, snap) -> None:
-        """Compat tick HUD externe."""
         if snap is None or not self._active:
             return
         try:
@@ -500,13 +538,11 @@ class PerfPanel(HudModePanel):
         alerts = []
         gpu_col = theme.ACCENT
 
-        # Titres dynamiques
         cpu_title = snap.cpu_name or "CPU"
-        self.card_cpu.set_title(cpu_title if len(cpu_title) < 42 else cpu_title[:40] + "…")
+        self.card_cpu.set_title(cpu_title if len(cpu_title) < 36 else cpu_title[:34] + "…")
         gpu_title = snap.gpu_name or "GPU"
         self.card_gpu.set_title(gpu_title if len(gpu_title) < 42 else gpu_title[:40] + "…")
 
-        # FPS
         if cfg.get("show_fps", True):
             fps = None
             ft = None
@@ -524,26 +560,30 @@ class PerfPanel(HudModePanel):
                     ft = None
             self.card_fps.rows["fps"].update_metric(fps, unit="FPS")
             self.card_fps.rows["ft"].update_metric(ft, unit="ms")
-            # Forcer couleur FPS
-            self.card_fps.rows["fps"].gauge.set_colors(FPS_COLOR, theme.BG_PANEL2)
+            self.card_fps.rows["fps"].gauge.set_colors(FPS_COLOR, CARD_BG)
             self.card_fps.rows["fps"].spark.set_color(FPS_COLOR)
+            self.card_fps.rows["ft"].gauge.set_colors(FPS_COLOR, CARD_BG)
+            self.card_fps.rows["ft"].spark.set_color(FPS_COLOR)
 
         if cfg.get("show_cpu", True):
             alert = snap.cpu_percent >= cfg.get("alert_cpu", 90)
             self.card_cpu.rows["util"].update_metric(snap.cpu_percent)
+            self.card_cpu.rows["util"].gauge.set_colors(CPU_COLOR, CARD_BG)
+            self.card_cpu.rows["util"].spark.set_color(CPU_COLOR)
             if cfg.get("show_temps", True):
                 self.card_cpu.rows["temp"].update_metric(snap.cpu_temp_c, unit="°C")
+                self.card_cpu.rows["temp"].gauge.set_colors(CPU_COLOR, CARD_BG)
+                self.card_cpu.rows["temp"].spark.set_color(CPU_COLOR)
             else:
                 self.card_cpu.rows["temp"].update_metric(None)
             if alert:
                 alerts.append(f"CPU {snap.cpu_percent:.0f}%")
 
         if cfg.get("show_gpu", True):
-            # Maj couleur accent GPU (peut changer runtime)
             for key in ("util", "power", "temp", "vram"):
                 row = self.card_gpu.rows.get(key)
                 if row:
-                    row.gauge.set_colors(gpu_col, theme.BG_PANEL2)
+                    row.gauge.set_colors(gpu_col, CARD_BG)
                     row.spark.set_color(gpu_col)
             if snap.gpu_percent is not None:
                 self.card_gpu.rows["util"].update_metric(snap.gpu_percent)
@@ -551,9 +591,7 @@ class PerfPanel(HudModePanel):
                     alerts.append(f"GPU {snap.gpu_percent:.0f}%")
             else:
                 self.card_gpu.rows["util"].update_metric(None)
-            self.card_gpu.rows["power"].update_metric(
-                snap.gpu_power_w, unit="W",
-            )
+            self.card_gpu.rows["power"].update_metric(snap.gpu_power_w, unit="W")
             if cfg.get("show_temps", True):
                 self.card_gpu.rows["temp"].update_metric(snap.gpu_temp_c, unit="°C")
             else:
@@ -562,6 +600,8 @@ class PerfPanel(HudModePanel):
 
         if cfg.get("show_ram", True):
             self.card_ram.rows["util"].update_metric(snap.ram_percent)
+            self.card_ram.rows["util"].gauge.set_colors(RAM_COLOR, CARD_BG)
+            self.card_ram.rows["util"].spark.set_color(RAM_COLOR)
             if snap.ram_percent >= cfg.get("alert_ram", 90):
                 alerts.append(f"RAM {snap.ram_percent:.0f}%")
 

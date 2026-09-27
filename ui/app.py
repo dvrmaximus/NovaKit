@@ -295,7 +295,7 @@ class AstatApp:
             "sw": sw, "sh": sh, "margin": margin, "top_h": top_h, "bar_h": bar_h,
             "gap_y": gap_y, "top_y": top_y, "gap_x": self._s(16),
             "left_assist": self._s(220 if sw < 1500 else 236),
-            "left_mode": self._s(340 if sw < 1400 else (380 if sw < 1800 else 420)),
+            "left_mode": self._s(380 if sw < 1400 else (440 if sw < 1800 else 500)),
             "right_w": self._s(250 if sw < 1500 else 280),
         }
         left_w = self._layout["left_assist"]

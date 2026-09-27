@@ -129,14 +129,15 @@ class HudModePanel(ctk.CTkFrame):
         **kw,
     ):
         super().__init__(master, fg_color="transparent", **kw)
-        self._nav_btns: dict[str, ctk.CTkButton] = {}
+        self._nav_btns: dict[str, ctk.CTkLabel] = {}
+        self._nav_underlines: dict[str, ctk.CTkFrame] = {}
         self._pages: dict[str, ctk.CTkFrame] = {}
         self._current = ""
 
         head = ctk.CTkFrame(self, fg_color="transparent")
-        head.pack(fill="x", pady=(0, 4))
+        head.pack(fill="x", pady=(0, 2))
         ctk.CTkLabel(
-            head, text=title, font=mono(11, True), text_color=theme.TEXT_PRIMARY,
+            head, text=title, font=mono(11, True), text_color="#FFFFFF",
         ).pack(side="left")
         self.status_lbl = ctk.CTkLabel(
             head, text="", font=mono(8), text_color=theme.TEXT_MUTED,
@@ -144,24 +145,30 @@ class HudModePanel(ctk.CTkFrame):
         if status:
             self.status_lbl.pack(side="right")
 
+        # Sous-nav Adrenalin : labels cliquables + soulignement actif
         tabs = ctk.CTkFrame(self, fg_color="transparent")
-        tabs.pack(fill="x", pady=(0, 6))
+        tabs.pack(fill="x", pady=(2, 0))
         for key, label in nav:
-            btn = ctk.CTkButton(
-                tabs,
+            cell = ctk.CTkFrame(tabs, fg_color="transparent")
+            cell.pack(side="left", padx=(0, 16))
+            btn = ctk.CTkLabel(
+                cell,
                 text=label,
                 font=mono(9, True),
-                height=24,
-                corner_radius=CORNER,
-                border_width=1,
-                border_color=theme.LINE,
-                fg_color=theme.GLASS2,
-                hover_color=theme.ACCENT_DIM,
-                text_color=theme.TEXT_SECONDARY,
-                command=lambda k=key: self.show_page(k),
+                text_color="#888888",
+                cursor="hand2",
             )
-            btn.pack(side="left", expand=True, fill="x", padx=1)
+            btn.pack(side="top")
+            btn.bind("<Button-1>", lambda _e, k=key: self.show_page(k))
+            ul = ctk.CTkFrame(cell, fg_color=theme.BG_DEEP, height=2, corner_radius=0)
+            ul.pack(fill="x", pady=(3, 0))
             self._nav_btns[key] = btn
+            self._nav_underlines[key] = ul
+
+        # Ligne hairline sous la barre d'onglets
+        ctk.CTkFrame(self, fg_color=theme.LINE, height=1, corner_radius=0).pack(
+            fill="x", pady=(0, 8),
+        )
 
         self.content = ctk.CTkFrame(self, fg_color="transparent")
         self.content.pack(fill="both", expand=True)
@@ -185,18 +192,15 @@ class HudModePanel(ctk.CTkFrame):
                 fr.pack_forget()
         self._current = key
         for k, b in self._nav_btns.items():
+            ul = self._nav_underlines.get(k)
             if k == key:
-                b.configure(
-                    fg_color=theme.ACCENT_DIM,
-                    text_color=theme.TEXT_PRIMARY,
-                    border_color=theme.GLASS_BORDER_HOT,
-                )
+                b.configure(text_color="#FFFFFF")
+                if ul:
+                    ul.configure(fg_color=theme.ACCENT)
             else:
-                b.configure(
-                    fg_color=theme.GLASS2,
-                    text_color=theme.TEXT_SECONDARY,
-                    border_color=theme.LINE,
-                )
+                b.configure(text_color="#888888")
+                if ul:
+                    ul.configure(fg_color=theme.BG_DEEP)
 
     def set_status(self, text: str):
         try:
