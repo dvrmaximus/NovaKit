@@ -65,11 +65,15 @@ Trois modes sur le panneau gauche (ou à la voix) :
 | Mode | Contenu |
 |------|---------|
 | **Assist** | Journal, modules, mobile (défaut) |
-| **Performance** | CPU, RAM, disque, GPU/VRAM, réseau (~1–2 Hz) |
-| **Gaming** | FPS du HUD, config PC, estimations de presets jeux |
+| **Performance** | Mini-méteurs dans le HUD + **Centre Performance** (fenêtre) : graphes live, capteurs, seuils |
+| **Gaming** | Mini FPS dans le HUD + **Centre Gaming** (fenêtre) : presets, micro-bench, réglages |
 
-Exemples voix : « mode performance », « mode gaming », « mode normal ».  
-Les presets jeux sont des **estimations** heuristiques, pas des mesures in-game. GPU % / températures : disponibles si `nvidia-smi` / GPUtil / capteurs système le permettent.
+Les centres s’ouvrent en fenêtres séparées (style panneau de contrôle) : tu peux les garder côte à côte ; les fermer ne quitte pas le HUD.
+
+Réglages persistés dans `data/mode_settings.json` (fréquence, alertes, opacite, always-on-top…).
+
+Exemples voix : « mode performance », « ouvre gaming », « ferme les panneaux », « mode normal ».  
+Les presets jeux sont des **estimations** heuristiques, pas des mesures in-game.
 
 ## English (short)
 

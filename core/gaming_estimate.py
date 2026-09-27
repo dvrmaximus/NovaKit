@@ -168,8 +168,14 @@ def tier_gpu(name: str) -> int:
     return 2
 
 
-def estimer_presets(hw: HardwareProfile | None = None) -> list[GameEstimate]:
-    """Heuristique honnete — pas une mesure reelle in-game."""
+def estimer_presets(
+    hw: HardwareProfile | None = None,
+    aggressiveness: float = 0.5,
+) -> list[GameEstimate]:
+    """Heuristique honnete — pas une mesure reelle in-game.
+
+    aggressiveness 0..1 : prudent ← → optimiste (decale le tier GPU).
+    """
     hw = hw or detect_hardware()
     t = hw.gpu_tier
     ram = hw.ram_gb or 8.0
@@ -178,6 +184,14 @@ def estimer_presets(hw: HardwareProfile | None = None) -> list[GameEstimate]:
         t = max(1, t - 1)
     elif ram >= 32 and t >= 3:
         t = min(5, t + 0)
+    try:
+        aggr = max(0.0, min(1.0, float(aggressiveness)))
+    except (TypeError, ValueError):
+        aggr = 0.5
+    if aggr >= 0.75:
+        t = min(5, t + 1)
+    elif aggr <= 0.25:
+        t = max(1, t - 1)
 
     def card(scenario, res, fps, qual, shaders, resume):
         return GameEstimate(scenario, res, fps, qual, shaders, resume)

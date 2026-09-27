@@ -62,8 +62,8 @@ def set_mode(mode: str, *, persist: bool = True, announce: bool = True) -> str:
         if cible == "assist":
             return f"Mode {label} : journal et commandes."
         if cible == "performance":
-            return f"Mode {label} : telemetrie CPU, RAM, disque et GPU."
-        return f"Mode {label} : FPS HUD, config PC et estimations de presets."
+            return f"Mode {label} : centre telemetrie ouvert (CPU, RAM, GPU)."
+        return f"Mode {label} : centre gaming ouvert (FPS, presets, bench)."
     return label
 
 

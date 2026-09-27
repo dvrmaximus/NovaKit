@@ -79,6 +79,8 @@ class AstatApp:
         self._perf_view = None
         self._gaming_view = None
         self._mode_switcher = None
+        self._perf_win = None
+        self._gaming_win = None
         self._last_tunnel_sig = None
         self._ui_scale = 1.0
         self._dpi_scale = 1.0
@@ -136,6 +138,13 @@ class AstatApp:
             self._hud_mode = hud_modes.charger_depuis_profil()
         except Exception:
             self._hud_mode = "assist"
+        try:
+            from core import mode_panels
+            mode_panels.on_panel_request(
+                lambda a: self.root.after(0, self._on_panel_request, a)
+            )
+        except Exception:
+            pass
         self.root.after(2500, self._check_backup_quotidienne)
 
     # ── Mode fond d'écran ─────────────────────────────────────────
@@ -518,14 +527,10 @@ class AstatApp:
         self.remote_clients_label = ctk.CTkLabel(assist, text="Serveur…", font=self.font_sub, text_color=TEXT_MUTED)
         self.remote_clients_label.pack(anchor="w", pady=(2, 0))
 
-        # —— Performance / Gaming ——
-        self._perf_view = PerformanceView(perf)
+        # —— Performance / Gaming (resume HUD + panneaux dedies) ——
+        self._perf_view = PerformanceView(perf, on_open_panel=self._ouvrir_perf_panel)
         self._perf_view.pack(fill="both", expand=True)
-        self._gaming_view = GamingView(
-            game,
-            get_hud_fps=lambda: getattr(self.hud_canvas, "get_fps", lambda: 0)(),
-            on_bench_done=self._apres_micro_bench,
-        )
+        self._gaming_view = GamingView(game, on_open_panel=self._ouvrir_gaming_panel)
         self._gaming_view.pack(fill="both", expand=True)
 
         self._appliquer_mode_hud(getattr(self, "_hud_mode", "assist"), announce=False)
@@ -537,8 +542,126 @@ class AstatApp:
         except Exception:
             pass
 
+    def _prepare_secondary_window(self):
+        """Assure que le HUD laisse passer les clics pour une fenetre secondaire."""
+        try:
+            if self.desktop_mode and self.click_through:
+                self._toggle_click_through()
+            if self._hwnd:
+                try:
+                    ensure_interactive(self._hwnd, 240)
+                    bring_to_front(self._hwnd)
+                except Exception:
+                    pass
+            try:
+                self.root.wm_attributes("-topmost", True)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _ouvrir_perf_panel(self):
+        try:
+            self._prepare_secondary_window()
+            from ui.perf_window import ouvrir_perf
+            self._perf_win = ouvrir_perf(self.root)
+        except Exception as exc:
+            try:
+                self.ajouter_bulle("astat", f"Centre Performance : {exc}")
+            except Exception:
+                pass
+
+    def _ouvrir_gaming_panel(self):
+        try:
+            self._prepare_secondary_window()
+            from ui.gaming_window import ouvrir_gaming
+
+            def _fps():
+                if getattr(self, "hud_canvas", None):
+                    return self.hud_canvas.get_fps()
+                return 0
+
+            def _ms():
+                if getattr(self, "hud_canvas", None):
+                    return self.hud_canvas.get_frame_ms()
+                return 0
+
+            def _track(enabled: bool):
+                if getattr(self, "hud_canvas", None):
+                    # garde le tracking si mode gaming OU overlay demande
+                    mode = getattr(self, "_hud_mode", "assist")
+                    self.hud_canvas.set_fps_tracking(bool(enabled) or mode == "gaming")
+
+            self._gaming_win = ouvrir_gaming(
+                self.root,
+                get_hud_fps=_fps,
+                get_frame_ms=_ms,
+                set_fps_tracking=_track,
+                on_bench_done=self._apres_micro_bench,
+                on_settings_changed=self._sync_fps_tracking,
+            )
+            # resume materiel dans le HUD
+            try:
+                from core.gaming_estimate import detect_hardware
+                hw = detect_hardware()
+                vram = f" · {hw.gpu_vram_gb:.0f}G VRAM" if hw.gpu_vram_gb else ""
+                if self._gaming_view:
+                    self._gaming_view.set_hw_summary(
+                        f"{hw.gpu_name}{vram}\n{hw.ram_gb:.0f} Go RAM"
+                    )
+            except Exception:
+                pass
+        except Exception as exc:
+            try:
+                self.ajouter_bulle("astat", f"Centre Gaming : {exc}")
+            except Exception:
+                pass
+
+    def _fermer_mode_panels(self):
+        try:
+            from ui.perf_window import fermer_perf
+            fermer_perf()
+        except Exception:
+            pass
+        try:
+            from ui.gaming_window import fermer_gaming
+            fermer_gaming()
+        except Exception:
+            pass
+        self._perf_win = None
+        self._gaming_win = None
+
+    def _on_panel_request(self, action: str):
+        action = (action or "").lower()
+        if action in ("open_perf", "focus_perf"):
+            hud_modes.set_mode("performance", announce=False)
+            self._ouvrir_perf_panel()
+        elif action in ("open_gaming", "focus_gaming"):
+            hud_modes.set_mode("gaming", announce=False)
+            self._ouvrir_gaming_panel()
+        elif action == "close_all":
+            self._fermer_mode_panels()
+
+    def _sync_fps_tracking(self):
+        mode = getattr(self, "_hud_mode", "assist")
+        want = mode == "gaming"
+        try:
+            from core.mode_settings import get_section
+            if get_section("gaming").get("hud_fps_overlay", True) and mode == "gaming":
+                want = True
+            elif mode != "gaming":
+                want = False
+        except Exception:
+            pass
+        if getattr(self, "hud_canvas", None):
+            try:
+                self.hud_canvas.set_fps_tracking(want)
+            except Exception:
+                pass
+
     def _appliquer_mode_hud(self, mode: str, announce: bool = False):
         mode = hud_modes.normaliser_mode(mode)
+        prev = getattr(self, "_hud_mode", "assist")
         self._hud_mode = mode
         if self._mode_switcher:
             try:
@@ -553,12 +676,7 @@ class AstatApp:
                     frame.pack_forget()
             except Exception:
                 pass
-        # FPS tracking uniquement en gaming
-        if getattr(self, "hud_canvas", None):
-            try:
-                self.hud_canvas.set_fps_tracking(mode == "gaming")
-            except Exception:
-                pass
+        self._sync_fps_tracking()
         # Intervalle telemetrie
         if mode == "performance":
             self._telemetry_interval = 800
@@ -571,6 +689,17 @@ class AstatApp:
                 self.top_status.configure(text=f"mode {hud_modes.LABELS.get(mode, mode).lower()}")
             except Exception:
                 pass
+        # Ouvrir / focus le panneau dedie quand on change de mode (sans fermer l'autre)
+        if mode != prev:
+            try:
+                from core.mode_settings import get_section
+                open_win = bool(get_section("global").get("open_window_on_mode", True))
+            except Exception:
+                open_win = True
+            if open_win and mode == "performance":
+                self.root.after(80, self._ouvrir_perf_panel)
+            elif open_win and mode == "gaming":
+                self.root.after(80, self._ouvrir_gaming_panel)
 
     def _apres_micro_bench(self, result, avg_fps):
         try:

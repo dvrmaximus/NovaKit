@@ -139,6 +139,58 @@ def executer_commande_locale(message: str) -> str | None:
         if any(x in t for x in ("ouvre", "ouvrir", "lance", "lancer", "cherche")):
             return ouvrir_youtube()
 
+    # —— Panneaux modes (avant « ouvre app ») ——
+    if any(
+        x in t
+        for x in (
+            "ferme les panneaux",
+            "fermer les panneaux",
+            "ferme les panels",
+            "ferme les fenetres mode",
+            "ferme les fenêtres mode",
+            "ferme centre performance",
+            "ferme centre gaming",
+            "ferme les centres",
+        )
+    ):
+        from core.mode_panels import request
+        return request("close_all")
+
+    if any(
+        x in t
+        for x in (
+            "ouvre performance",
+            "ouvrir performance",
+            "ouvre le centre performance",
+            "ouvrir le centre performance",
+            "ouvre panneau performance",
+            "ouvre le panneau performance",
+            "ouvre perf",
+        )
+    ):
+        from core.hud_modes import set_mode
+        from core.mode_panels import request
+        set_mode("performance", announce=False)
+        return request("open_perf")
+
+    if any(
+        x in t
+        for x in (
+            "ouvre gaming",
+            "ouvrir gaming",
+            "ouvre le centre gaming",
+            "ouvrir le centre gaming",
+            "ouvre panneau gaming",
+            "ouvre le panneau gaming",
+            "ouvre jeu",
+            "ouvre game",
+        )
+    ):
+        from core.hud_modes import set_mode
+        from core.mode_panels import request
+        set_mode("gaming", announce=False)
+        return request("open_gaming")
+
     # —— Apps (n'importe laquelle) ——
     m = re.search(
         r"^(?:ouvre|ouvrir|lance|lancer|demarre|demarrer|start)\s+(?:l['\u2019]appli(?:cation)?\s+|l['\u2019]app\s+|le\s+|la\s+|les\s+|le\s+jeu\s+|jeu\s+)?(.+)$",
@@ -147,12 +199,26 @@ def executer_commande_locale(message: str) -> str | None:
     )
     if m:
         cible = m.group(1).strip(" .!?")
+        tn = _norm(cible)
+        # Ne pas traiter les modes HUD comme des apps
+        if tn in (
+            "performance", "perf", "gaming", "game", "jeu", "assist", "normal",
+            "centre performance", "centre gaming", "panneau performance", "panneau gaming",
+        ):
+            from core.hud_modes import set_mode
+            from core.mode_panels import request
+            if "gam" in tn or tn in ("jeu", "game"):
+                set_mode("gaming", announce=False)
+                return request("open_gaming")
+            if "perf" in tn or "performance" in tn:
+                set_mode("performance", announce=False)
+                return request("open_perf")
+            return set_mode("assist")
         from tools.web_tools import ouvrir_site_web
         sites = (
             "youtube", "gmail", "google", "netflix", "github",
             "twitter", "facebook", "reddit", "spotify",
         )
-        tn = _norm(cible)
         for s in sites:
             if s in tn and "http" not in tn:
                 if s == "youtube" and tn != "youtube":
@@ -292,7 +358,9 @@ def executer_commande_locale(message: str) -> str | None:
     if any(x in t for x in ("estimation jeu", "estimer mon pc", "que peut tourner", "presets jeux", "config gaming")):
         from core.gaming_estimate import resume_vocal
         from core.hud_modes import set_mode
+        from core.mode_panels import request
         set_mode("gaming", announce=False)
+        request("open_gaming")
         return resume_vocal()
 
     # —— Admin créateur (message / parler / ping / status uniquement) ——
