@@ -45,8 +45,15 @@ class GamingPanel(HudModePanel):
         self._wrap = wraplength
         self._tick_id = None
         self._active = False
+        self._settings_ready = False
         self._cfg = mode_settings.get_section("gaming")
         self._last_estimates = []
+        # Vars avant tout callback (bench slider appelle _persist_settings a la creation).
+        self.v_res = ctk.StringVar(value=str(self._cfg.get("resolution_preset", "auto")))
+        self.v_qual = ctk.StringVar(value=str(self._cfg.get("quality_preset", "auto")))
+        self.v_bench_dur = ctk.DoubleVar(value=float(self._cfg.get("bench_duration_s", 2.5)))
+        self.v_aggr = ctk.DoubleVar(value=float(self._cfg.get("aggressiveness", 0.5)))
+        self.v_fps_ov = ctk.BooleanVar(value=bool(self._cfg.get("hud_fps_overlay", True)))
 
         super().__init__(
             master,
@@ -63,6 +70,7 @@ class GamingPanel(HudModePanel):
         self._build_presets()
         self._build_bench()
         self._build_settings()
+        self._settings_ready = True
 
     def set_active(self, active: bool):
         self._active = bool(active)
@@ -151,7 +159,6 @@ class GamingPanel(HudModePanel):
         SectionTitle(page, "Presets estimes").pack(fill="x", pady=(0, 4))
         filt = ctk.CTkFrame(page, fg_color="transparent")
         filt.pack(fill="x", pady=(0, 6))
-        self.v_res = ctk.StringVar(value=str(self._cfg.get("resolution_preset", "auto")))
         self.res_menu = ctk.CTkOptionMenu(
             filt, values=list(_RES_OPTIONS), variable=self.v_res,
             font=mono(9), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
@@ -159,7 +166,6 @@ class GamingPanel(HudModePanel):
             width=90, corner_radius=CORNER, height=26,
         )
         self.res_menu.pack(side="left", padx=(0, 6))
-        self.v_qual = ctk.StringVar(value=str(self._cfg.get("quality_preset", "auto")))
         self.qual_menu = ctk.CTkOptionMenu(
             filt, values=list(_QUAL_OPTIONS), variable=self.v_qual,
             font=mono(9), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
@@ -179,7 +185,6 @@ class GamingPanel(HudModePanel):
             font=mono(9), text_color=theme.TEXT_SECONDARY, wraplength=self._wrap, justify="left",
         ).pack(anchor="w", pady=(0, 8))
 
-        self.v_bench_dur = ctk.DoubleVar(value=float(self._cfg.get("bench_duration_s", 2.5)))
         box, _ = labeled_slider(
             page, "Duree (s)", self.v_bench_dur, 1.0, 5.0,
             command=self._persist_settings, fmt="{:.1f} s",
@@ -206,14 +211,12 @@ class GamingPanel(HudModePanel):
         scroll.pack(fill="both", expand=True)
         SectionTitle(scroll, "Estimations").pack(fill="x", pady=(0, 6))
 
-        self.v_aggr = ctk.DoubleVar(value=float(self._cfg.get("aggressiveness", 0.5)))
         box, _ = labeled_slider(
             scroll, "Aggressivite", self.v_aggr, 0.0, 1.0,
             command=self._persist_settings, fmt="{:.0%}",
         )
         box.pack(fill="x", pady=4)
 
-        self.v_fps_ov = ctk.BooleanVar(value=bool(self._cfg.get("hud_fps_overlay", True)))
         labeled_switch(
             scroll, "Suivi FPS HUD", self.v_fps_ov, command=self._persist_settings,
         ).pack(fill="x", pady=4)
@@ -230,6 +233,8 @@ class GamingPanel(HudModePanel):
         self._render_estimates(self._last_estimates)
 
     def _persist_settings(self):
+        if not getattr(self, "_settings_ready", False):
+            return
         patch = {
             "gaming": {
                 "resolution_preset": self.v_res.get(),

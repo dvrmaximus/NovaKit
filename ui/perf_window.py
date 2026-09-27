@@ -20,7 +20,20 @@ class PerfPanel(HudModePanel):
         self._wrap = wraplength
         self._tick_id = None
         self._active = False
+        self._settings_ready = False
         self._cfg = mode_settings.get_section("perf")
+        # Vars avant tout callback slider/switch (labeled_slider peut notifier a la creation).
+        self.v_show_cpu = ctk.BooleanVar(value=bool(self._cfg.get("show_cpu", True)))
+        self.v_show_ram = ctk.BooleanVar(value=bool(self._cfg.get("show_ram", True)))
+        self.v_show_gpu = ctk.BooleanVar(value=bool(self._cfg.get("show_gpu", True)))
+        self.v_show_disk = ctk.BooleanVar(value=bool(self._cfg.get("show_disk", True)))
+        self.v_show_net = ctk.BooleanVar(value=bool(self._cfg.get("show_net", True)))
+        self.v_show_temps = ctk.BooleanVar(value=bool(self._cfg.get("show_temps", True)))
+        self.v_hz = ctk.DoubleVar(value=float(self._cfg.get("refresh_hz", 1.5)))
+        self.v_alert_cpu = ctk.IntVar(value=int(self._cfg.get("alert_cpu", 90)))
+        self.v_alert_ram = ctk.IntVar(value=int(self._cfg.get("alert_ram", 90)))
+        self.v_alert_gpu = ctk.IntVar(value=int(self._cfg.get("alert_gpu", 95)))
+        self.v_hist = ctk.IntVar(value=int(self._cfg.get("history_points", 60)))
         super().__init__(
             master,
             title="Performance",
@@ -36,6 +49,7 @@ class PerfPanel(HudModePanel):
         self._build_graphs()
         self._build_sensors()
         self._build_settings()
+        self._settings_ready = True
 
     def set_active(self, active: bool):
         self._active = bool(active)
@@ -143,12 +157,6 @@ class PerfPanel(HudModePanel):
         scroll.pack(fill="both", expand=True)
         SectionTitle(scroll, "Affichage").pack(fill="x", pady=(0, 6))
 
-        self.v_show_cpu = ctk.BooleanVar(value=bool(self._cfg.get("show_cpu", True)))
-        self.v_show_ram = ctk.BooleanVar(value=bool(self._cfg.get("show_ram", True)))
-        self.v_show_gpu = ctk.BooleanVar(value=bool(self._cfg.get("show_gpu", True)))
-        self.v_show_disk = ctk.BooleanVar(value=bool(self._cfg.get("show_disk", True)))
-        self.v_show_net = ctk.BooleanVar(value=bool(self._cfg.get("show_net", True)))
-        self.v_show_temps = ctk.BooleanVar(value=bool(self._cfg.get("show_temps", True)))
         for var, txt in (
             (self.v_show_cpu, "CPU"),
             (self.v_show_ram, "RAM"),
@@ -160,16 +168,12 @@ class PerfPanel(HudModePanel):
             labeled_switch(scroll, txt, var, command=self._persist_settings).pack(fill="x", pady=2)
 
         SectionTitle(scroll, "Rafraichissement & alertes").pack(fill="x", pady=(12, 6))
-        self.v_hz = ctk.DoubleVar(value=float(self._cfg.get("refresh_hz", 1.5)))
         box, _ = labeled_slider(
             scroll, "Frequence (Hz)", self.v_hz, 0.5, 4.0,
             command=self._persist_settings, fmt="{:.1f} Hz",
         )
         box.pack(fill="x", pady=4)
 
-        self.v_alert_cpu = ctk.IntVar(value=int(self._cfg.get("alert_cpu", 90)))
-        self.v_alert_ram = ctk.IntVar(value=int(self._cfg.get("alert_ram", 90)))
-        self.v_alert_gpu = ctk.IntVar(value=int(self._cfg.get("alert_gpu", 95)))
         for var, txt in (
             (self.v_alert_cpu, "Alerte CPU (%)"),
             (self.v_alert_ram, "Alerte RAM (%)"),
@@ -180,7 +184,6 @@ class PerfPanel(HudModePanel):
             )
             box.pack(fill="x", pady=4)
 
-        self.v_hist = ctk.IntVar(value=int(self._cfg.get("history_points", 60)))
         box, _ = labeled_slider(
             scroll, "Points graphes", self.v_hist, 20, 120,
             command=self._persist_settings, fmt="{:.0f}",
@@ -200,6 +203,8 @@ class PerfPanel(HudModePanel):
         ).pack(anchor="w", pady=(10, 0))
 
     def _persist_settings(self):
+        if not getattr(self, "_settings_ready", False):
+            return
         patch = {
             "perf": {
                 "refresh_hz": float(self.v_hz.get()),

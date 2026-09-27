@@ -391,12 +391,12 @@ def labeled_slider(
     val_lbl = ctk.CTkLabel(top, text="", font=mono(10, True), text_color=theme.ACCENT_SOFT)
     val_lbl.pack(side="right")
 
-    def _upd(_=None):
+    def _upd(_=None, *, notify: bool = True):
         try:
             val_lbl.configure(text=fmt.format(var.get()))
         except Exception:
             val_lbl.configure(text=str(var.get()))
-        if command:
+        if notify and command:
             command()
 
     slider = ctk.CTkSlider(
@@ -411,5 +411,7 @@ def labeled_slider(
         command=lambda _v: _upd(),
     )
     slider.pack(fill="x", pady=(4, 0))
-    _upd()
+    # Afficher la valeur initiale sans declencher le callback (evite AttributeError
+    # si le parent n'a pas encore cree toutes ses variables de reglages).
+    _upd(notify=False)
     return box, val_lbl
