@@ -37,8 +37,11 @@ from ui.hud_theme import (
     SUCCESS, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, charger_accent_profil,
 )
 from ui.hud_widgets import MeterBar, SectionTitle, StatusDot, mono
-from ui.modes.views import GamingView, ModeSwitcher, PerformanceView
+from ui.modes.views import ModeSwitcher
+from ui.perf_window import PerfPanel
+from ui.gaming_window import GamingPanel
 from core import hud_modes
+from ui.mode_shell import CORNER, CORNER_SOFT
 from ui.win_desktop import (
     HotkeyListener, apply_tk_dpi_scaling, bring_to_front, compute_ui_scale,
     ensure_interactive, hwnd_toplevel, list_monitors, resolve_monitor,
@@ -243,7 +246,7 @@ class AstatApp:
 
     def _glass(self, parent, **kw):
         defaults = dict(
-            fg_color=GLASS, corner_radius=10,
+            fg_color=GLASS, corner_radius=CORNER_SOFT,
             border_width=1, border_color=GLASS_BORDER,
         )
         defaults.update(kw)
@@ -260,7 +263,7 @@ class AstatApp:
             text=text, font=self.font_hud_b if primary else self.font_hud,
             fg_color=fg, hover_color=hover, text_color=tc,
             border_width=1, border_color=LINE,
-            corner_radius=8, height=kw.pop("height", 32), command=command,
+            corner_radius=CORNER, height=kw.pop("height", 32), command=command,
         )
         opts.update(kw)
         return ctk.CTkButton(parent, **opts)
@@ -284,18 +287,24 @@ class AstatApp:
 
         # Marges & panneaux proportionnels — toujours dans l'écran
         margin = self._s(16)
-        top_h = self._s(42)
+        top_h = self._s(48)
         bar_h = self._s(52)
         gap_y = self._s(10)
         top_y = self._s(10)
-        left_w = self._s(220 if sw < 1500 else 236)
-        right_w = self._s(250 if sw < 1500 else 280)
+        self._layout = {
+            "sw": sw, "sh": sh, "margin": margin, "top_h": top_h, "bar_h": bar_h,
+            "gap_y": gap_y, "top_y": top_y, "gap_x": self._s(16),
+            "left_assist": self._s(220 if sw < 1500 else 236),
+            "left_mode": self._s(340 if sw < 1400 else (380 if sw < 1800 else 420)),
+            "right_w": self._s(250 if sw < 1500 else 280),
+        }
+        left_w = self._layout["left_assist"]
+        right_w = self._layout["right_w"]
         usable_h = sh - top_y - top_h - gap_y - bar_h - self._s(18)
         panel_h = max(self._s(280), usable_h)
-        gap_x = self._s(16)
+        gap_x = self._layout["gap_x"]
         center_w = sw - left_w - right_w - 2 * margin - 2 * gap_x
         center_w = max(self._s(280), min(self._s(520), center_w))
-        # Recentrer si trop large pour l'écran
         total = left_w + right_w + center_w + 2 * margin + 2 * gap_x
         if total > sw:
             overflow = total - sw
@@ -304,18 +313,22 @@ class AstatApp:
         createur = self._est_createur()
         panel_y = top_y + top_h + gap_y
         bar_y = sh - bar_h - self._s(12)
+        self._layout.update({
+            "panel_h": panel_h, "panel_y": panel_y, "bar_y": bar_y,
+            "left_w": left_w, "center_w": center_w,
+        })
 
         stage = ctk.CTkFrame(self.root, fg_color=BG_DEEP, corner_radius=0)
         stage.pack(fill="both", expand=True)
         self._stage = stage
 
-        # ── Top bar ──
-        top = self._glass(stage, width=sw - 2 * margin, height=top_h, corner_radius=10)
+        # ── Top bar (marque + onglets modes) ──
+        top = self._glass(stage, width=sw - 2 * margin, height=top_h, corner_radius=CORNER_SOFT)
         top.place(x=margin, y=top_y)
         top.pack_propagate(False)
 
         brand_row = ctk.CTkFrame(top, fg_color="transparent")
-        brand_row.pack(side="left", padx=self._s(12), pady=self._s(5))
+        brand_row.pack(side="left", padx=self._s(12), pady=self._s(6))
         self.status_dot = StatusDot(brand_row)
         self.status_dot.pack(side="left", padx=(0, 8))
         ctk.CTkLabel(
@@ -329,6 +342,15 @@ class AstatApp:
             font=self.font_sub, text_color=TEXT_MUTED,
         ).pack(side="left", pady=2)
 
+        # Onglets Assist / Perf / Gaming — dans Astat
+        tabs_wrap = ctk.CTkFrame(top, fg_color="transparent", width=self._s(220))
+        tabs_wrap.pack(side="left", padx=self._s(10), pady=self._s(8))
+        tabs_wrap.pack_propagate(False)
+        self._mode_switcher = ModeSwitcher(
+            tabs_wrap, on_select=self._ui_set_mode, current=getattr(self, "_hud_mode", "assist"),
+        )
+        self._mode_switcher.pack(fill="both", expand=True)
+
         self.top_status = ctk.CTkLabel(top, text="démarrage…", font=self.font_hud, text_color=TEXT_MUTED)
         self.top_status.pack(side="left", padx=8)
         modele = getattr(self.hub.brain, "modele", MODELE_GEMINI)
@@ -336,46 +358,51 @@ class AstatApp:
 
         bh = self._s(26)
         self._btn(top, "✕", self._quitter, danger=True, width=self._s(32), height=bh).pack(
-            side="right", padx=(4, self._s(10)), pady=self._s(6)
+            side="right", padx=(4, self._s(10)), pady=self._s(8)
         )
         self._btn(top, "Paramètres", self._ouvrir_parametres, primary=True, width=self._s(96), height=bh).pack(
-            side="right", padx=3, pady=self._s(6)
+            side="right", padx=3, pady=self._s(8)
         )
         self.desk_mode_btn = self._btn(
             top, "Bureau libre", self._toggle_click_through, width=self._s(96), height=bh,
         )
-        self.desk_mode_btn.pack(side="right", padx=3, pady=self._s(6))
+        self.desk_mode_btn.pack(side="right", padx=3, pady=self._s(8))
         self._btn(top, "Sous apps", self._pin_under_apps, width=self._s(76), height=bh).pack(
-            side="right", padx=3, pady=self._s(6)
+            side="right", padx=3, pady=self._s(8)
         )
         if n_mon > 1:
             self._btn(top, "Écran", self._cycle_monitor, width=self._s(56), height=bh).pack(
-                side="right", padx=3, pady=self._s(6)
+                side="right", padx=3, pady=self._s(8)
             )
         ctk.CTkLabel(top, text="F8", font=self.font_sub, text_color=TEXT_MUTED).pack(
             side="right", padx=4
         )
 
-        # ── Left telemetry ──
-        left = self._glass(stage, width=left_w, height=panel_h, corner_radius=10)
+        # ── Left telemetry / mode pages ──
+        left = self._glass(stage, width=left_w, height=panel_h, corner_radius=CORNER_SOFT)
         left.place(x=margin, y=panel_y)
         left.pack_propagate(False)
+        self._left_panel = left
         self._fill_telemetry_panel(left)
 
         # ── Right actions (+ admin créateur) ──
-        right = self._glass(stage, width=right_w, height=panel_h, corner_radius=10)
+        right = self._glass(stage, width=right_w, height=panel_h, corner_radius=CORNER_SOFT)
         right.place(x=sw - right_w - margin, y=panel_y)
         right.pack_propagate(False)
+        self._right_panel = right
         self._fill_actions_panel(right, createur=createur)
 
         # ── Center ──
-        cx = sw // 2
+        cx = margin + left_w + gap_x + center_w // 2
         center = ctk.CTkFrame(
             stage, fg_color=BG_DEEP, corner_radius=0,
             width=center_w, height=panel_h,
         )
         center.place(x=cx - center_w // 2, y=panel_y)
         center.pack_propagate(False)
+        self._center_panel = center
+        self._layout["center_x"] = cx - center_w // 2
+
 
         brand_sz = self._s(24 if sh < 900 else 28)
         ctk.CTkLabel(
@@ -398,7 +425,7 @@ class AstatApp:
             font=self.font_sub, text_color=TEXT_MUTED,
         ).pack(pady=(2, self._s(4)))
 
-        log_frame = self._glass(center, corner_radius=10)
+        log_frame = self._glass(center, corner_radius=CORNER_SOFT)
         log_frame.pack(fill="both", expand=True, padx=2, pady=(0, 2))
         hdr = ctk.CTkFrame(log_frame, fg_color="transparent")
         hdr.pack(fill="x", padx=self._s(10), pady=(self._s(6), 2))
@@ -410,7 +437,7 @@ class AstatApp:
         self.zone_chat.pack(fill="both", expand=True, padx=4, pady=(2, self._s(6)))
 
         # ── Command bar ──
-        barre = self._glass(stage, width=sw - 2 * margin, height=bar_h, corner_radius=10)
+        barre = self._glass(stage, width=sw - 2 * margin, height=bar_h, corner_radius=CORNER_SOFT)
         barre.place(x=margin, y=bar_y)
         barre.pack_propagate(False)
         inner = ctk.CTkFrame(barre, fg_color="transparent")
@@ -420,7 +447,7 @@ class AstatApp:
             inner,
             placeholder_text=f"Parler à {NOM_IA}…  (Ctrl+K)",
             fg_color=BG_INPUT, border_color=LINE, border_width=1,
-            text_color=TEXT_PRIMARY, font=self.font_chat, height=entry_h, corner_radius=8,
+            text_color=TEXT_PRIMARY, font=self.font_chat, height=entry_h, corner_radius=CORNER,
         )
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.entry.bind("<Return>", self.send_text_message)
@@ -440,28 +467,41 @@ class AstatApp:
         )
         self._boot_sub.place(relx=0.5, rely=0.52, anchor="center")
 
+        # Relayout apres construction centre (largeur Perf/Gaming)
+        try:
+            self._relayout_for_mode(getattr(self, "_hud_mode", "assist"))
+        except Exception:
+            pass
+
     def _fill_telemetry_panel(self, panel):
         pad = ctk.CTkScrollableFrame(panel, fg_color="transparent")
-        pad.pack(fill="both", expand=True, padx=10, pady=10)
+        pad.pack(fill="both", expand=True, padx=8, pady=8)
         self._left_pad = pad
 
-        SectionTitle(pad, "Horloge").pack(fill="x", pady=(0, 2))
-        self.clock_label = ctk.CTkLabel(pad, text="--:--:--", font=mono(28, True), text_color=TEXT_PRIMARY)
+        # Horloge toujours visible en tête
+        clock_box = ctk.CTkFrame(pad, fg_color="transparent")
+        clock_box.pack(fill="x")
+        SectionTitle(clock_box, "Horloge").pack(fill="x", pady=(0, 2))
+        self.clock_label = ctk.CTkLabel(clock_box, text="--:--:--", font=mono(26, True), text_color=TEXT_PRIMARY)
         self.clock_label.pack(anchor="w")
-        self.date_label = ctk.CTkLabel(pad, text="—", font=self.font_hud, text_color=TEXT_SECONDARY)
+        self.date_label = ctk.CTkLabel(clock_box, text="—", font=self.font_hud, text_color=TEXT_SECONDARY)
         self.date_label.pack(anchor="w", pady=(0, 6))
 
-        SectionTitle(pad, "Mode").pack(fill="x", pady=(2, 4))
-        self._mode_switcher = ModeSwitcher(
-            pad, on_select=self._ui_set_mode, current=getattr(self, "_hud_mode", "assist"),
-        )
-        self._mode_switcher.pack(fill="x", pady=(0, 8))
+        # Onglets modes aussi en mode fenetre classique (pas de top bar desktop)
+        if not getattr(self, "_mode_switcher", None) or not self.desktop_mode:
+            SectionTitle(pad, "Mode").pack(fill="x", pady=(2, 4))
+            self._mode_switcher = ModeSwitcher(
+                pad, on_select=self._ui_set_mode, current=getattr(self, "_hud_mode", "assist"),
+            )
+            self._mode_switcher.pack(fill="x", pady=(0, 8))
 
         self._mode_frames = {}
         assist = ctk.CTkFrame(pad, fg_color="transparent")
         perf = ctk.CTkFrame(pad, fg_color="transparent")
         game = ctk.CTkFrame(pad, fg_color="transparent")
         self._mode_frames = {"assist": assist, "performance": perf, "gaming": game}
+
+        wrap = max(160, self._s(300 if self.desktop_mode else 200))
 
         # —— Assist ——
         SectionTitle(assist, "Système").pack(fill="x", pady=(4, 6))
@@ -527,10 +567,33 @@ class AstatApp:
         self.remote_clients_label = ctk.CTkLabel(assist, text="Serveur…", font=self.font_sub, text_color=TEXT_MUTED)
         self.remote_clients_label.pack(anchor="w", pady=(2, 0))
 
-        # —— Performance / Gaming (resume HUD + panneaux dedies) ——
-        self._perf_view = PerformanceView(perf, on_open_panel=self._ouvrir_perf_panel)
+        # —— Performance / Gaming : pages completes in-HUD ——
+        def _fps():
+            if getattr(self, "hud_canvas", None):
+                return self.hud_canvas.get_fps()
+            return 0
+
+        def _ms():
+            if getattr(self, "hud_canvas", None):
+                return self.hud_canvas.get_frame_ms()
+            return 0
+
+        def _track(enabled: bool):
+            if getattr(self, "hud_canvas", None):
+                mode = getattr(self, "_hud_mode", "assist")
+                self.hud_canvas.set_fps_tracking(bool(enabled) or mode == "gaming")
+
+        self._perf_view = PerfPanel(perf, wraplength=wrap)
         self._perf_view.pack(fill="both", expand=True)
-        self._gaming_view = GamingView(game, on_open_panel=self._ouvrir_gaming_panel)
+        self._gaming_view = GamingPanel(
+            game,
+            get_hud_fps=_fps,
+            get_frame_ms=_ms,
+            set_fps_tracking=_track,
+            on_bench_done=self._apres_micro_bench,
+            on_settings_changed=self._sync_fps_tracking,
+            wraplength=wrap,
+        )
         self._gaming_view.pack(fill="both", expand=True)
 
         self._appliquer_mode_hud(getattr(self, "_hud_mode", "assist"), announce=False)
@@ -542,36 +605,46 @@ class AstatApp:
         except Exception:
             pass
 
-    def _prepare_secondary_window(self):
-        """Assure que le HUD laisse passer les clics pour une fenetre secondaire."""
+    def _relayout_for_mode(self, mode: str):
+        """Elargit le panneau gauche en Perf/Gaming pour les graphes in-HUD."""
+        if not self.desktop_mode or not getattr(self, "_layout", None):
+            return
+        if not getattr(self, "_left_panel", None) or not getattr(self, "_center_panel", None):
+            return
+        L = self._layout
+        left_w = L["left_mode"] if mode in ("performance", "gaming") else L["left_assist"]
+        sw, margin, gap_x = L["sw"], L["margin"], L["gap_x"]
+        right_w, panel_h, panel_y = L["right_w"], L["panel_h"], L["panel_y"]
+        center_w = sw - left_w - right_w - 2 * margin - 2 * gap_x
+        center_w = max(self._s(240), min(self._s(520), center_w))
+        total = left_w + right_w + center_w + 2 * margin + 2 * gap_x
+        if total > sw:
+            center_w = max(self._s(200), center_w - (total - sw))
+        L["left_w"] = left_w
+        L["center_w"] = center_w
         try:
-            if self.desktop_mode and self.click_through:
-                self._toggle_click_through()
-            if self._hwnd:
-                try:
-                    ensure_interactive(self._hwnd, 240)
-                    bring_to_front(self._hwnd)
-                except Exception:
-                    pass
-            try:
-                self.root.wm_attributes("-topmost", True)
-            except Exception:
-                pass
+            self._left_panel.configure(width=left_w)
+            self._left_panel.place(x=margin, y=panel_y)
+            cx = margin + left_w + gap_x
+            self._center_panel.configure(width=center_w)
+            self._center_panel.place(x=cx, y=panel_y)
         except Exception:
             pass
 
     def _ouvrir_perf_panel(self):
+        """Option avance : fenetre detachee (non utilisee par defaut)."""
         try:
             self._prepare_secondary_window()
             from ui.perf_window import ouvrir_perf
             self._perf_win = ouvrir_perf(self.root)
         except Exception as exc:
             try:
-                self.ajouter_bulle("astat", f"Centre Performance : {exc}")
+                self.ajouter_bulle("astat", f"Performance avance : {exc}")
             except Exception:
                 pass
 
     def _ouvrir_gaming_panel(self):
+        """Option avance : fenetre detachee (non utilisee par defaut)."""
         try:
             self._prepare_secondary_window()
             from ui.gaming_window import ouvrir_gaming
@@ -588,7 +661,6 @@ class AstatApp:
 
             def _track(enabled: bool):
                 if getattr(self, "hud_canvas", None):
-                    # garde le tracking si mode gaming OU overlay demande
                     mode = getattr(self, "_hud_mode", "assist")
                     self.hud_canvas.set_fps_tracking(bool(enabled) or mode == "gaming")
 
@@ -600,20 +672,9 @@ class AstatApp:
                 on_bench_done=self._apres_micro_bench,
                 on_settings_changed=self._sync_fps_tracking,
             )
-            # resume materiel dans le HUD
-            try:
-                from core.gaming_estimate import detect_hardware
-                hw = detect_hardware()
-                vram = f" · {hw.gpu_vram_gb:.0f}G VRAM" if hw.gpu_vram_gb else ""
-                if self._gaming_view:
-                    self._gaming_view.set_hw_summary(
-                        f"{hw.gpu_name}{vram}\n{hw.ram_gb:.0f} Go RAM"
-                    )
-            except Exception:
-                pass
         except Exception as exc:
             try:
-                self.ajouter_bulle("astat", f"Centre Gaming : {exc}")
+                self.ajouter_bulle("astat", f"Gaming avance : {exc}")
             except Exception:
                 pass
 
@@ -630,17 +691,28 @@ class AstatApp:
             pass
         self._perf_win = None
         self._gaming_win = None
+        # Retour vue Assist dans Astat
+        try:
+            hud_modes.set_mode("assist", announce=False)
+        except Exception:
+            pass
 
     def _on_panel_request(self, action: str):
+        """Voix / commandes : bascule l'onglet in-HUD (pas de fenetre separee)."""
         action = (action or "").lower()
         if action in ("open_perf", "focus_perf"):
             hud_modes.set_mode("performance", announce=False)
-            self._ouvrir_perf_panel()
         elif action in ("open_gaming", "focus_gaming"):
             hud_modes.set_mode("gaming", announce=False)
-            self._ouvrir_gaming_panel()
         elif action == "close_all":
             self._fermer_mode_panels()
+            # Option avance uniquement
+            try:
+                from core.mode_settings import get_section
+                if get_section("global").get("open_window_on_mode"):
+                    pass
+            except Exception:
+                pass
 
     def _sync_fps_tracking(self):
         mode = getattr(self, "_hud_mode", "assist")
@@ -676,8 +748,19 @@ class AstatApp:
                     frame.pack_forget()
             except Exception:
                 pass
+        # Activer ticks des panneaux embarques
+        if self._perf_view:
+            try:
+                self._perf_view.set_active(mode == "performance")
+            except Exception:
+                pass
+        if self._gaming_view:
+            try:
+                self._gaming_view.set_active(mode == "gaming")
+            except Exception:
+                pass
+        self._relayout_for_mode(mode)
         self._sync_fps_tracking()
-        # Intervalle telemetrie
         if mode == "performance":
             self._telemetry_interval = 800
         elif mode == "gaming":
@@ -689,13 +772,13 @@ class AstatApp:
                 self.top_status.configure(text=f"mode {hud_modes.LABELS.get(mode, mode).lower()}")
             except Exception:
                 pass
-        # Ouvrir / focus le panneau dedie quand on change de mode (sans fermer l'autre)
+        # Fenetre detachee : uniquement si reglage avance active (defaut = False)
         if mode != prev:
             try:
                 from core.mode_settings import get_section
-                open_win = bool(get_section("global").get("open_window_on_mode", True))
+                open_win = bool(get_section("global").get("open_window_on_mode", False))
             except Exception:
-                open_win = True
+                open_win = False
             if open_win and mode == "performance":
                 self.root.after(80, self._ouvrir_perf_panel)
             elif open_win and mode == "gaming":
@@ -709,6 +792,24 @@ class AstatApp:
                 f"Micro-bench terminé — ~{result.get('ops_m_per_s')} Mops/s{extra}. "
                 "Les presets restent des estimations.",
             )
+        except Exception:
+            pass
+
+    def _prepare_secondary_window(self):
+        """Assure que le HUD laisse passer les clics pour une fenetre secondaire."""
+        try:
+            if self.desktop_mode and self.click_through:
+                self._toggle_click_through()
+            if self._hwnd:
+                try:
+                    ensure_interactive(self._hwnd, 240)
+                    bring_to_front(self._hwnd)
+                except Exception:
+                    pass
+            try:
+                self.root.wm_attributes("-topmost", True)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -733,7 +834,7 @@ class AstatApp:
                 grid, text=label, font=self.font_hud,
                 fg_color=GLASS2, hover_color=ACCENT_DIM,
                 border_color=LINE, border_width=1,
-                text_color=TEXT_SECONDARY, height=34, corner_radius=6,
+                text_color=TEXT_SECONDARY, height=34, corner_radius=CORNER,
                 command=lambda c=cmd: self._action_rapide(c),
             )
             btn.grid(row=i // 2, column=i % 2, padx=2, pady=2, sticky="ew")
@@ -745,7 +846,7 @@ class AstatApp:
             pad, text=f"Écoute « {MOT_MAGIQUE} »",
             font=self.font_hud, fg_color=GLASS2, hover_color=ACCENT_DIM,
             border_color=LINE, border_width=1, text_color=TEXT_SECONDARY,
-            height=36, corner_radius=8, command=self.toggle_background_listening,
+            height=36, corner_radius=CORNER, command=self.toggle_background_listening,
         )
         self.toggle_button.pack(fill="x", pady=2)
         self._btn(pad, "Paramètres", self._ouvrir_parametres, primary=True, height=36).pack(
@@ -1114,7 +1215,7 @@ class AstatApp:
         self.hud_canvas.grid(row=2, pady=4)
         self.hud_canvas.bind("<Double-Button-1>", lambda e: self.start_listening())
 
-        log_frame = self._glass(centre, corner_radius=10)
+        log_frame = self._glass(centre, corner_radius=CORNER_SOFT)
         log_frame.grid(row=3, sticky="nsew", padx=20, pady=(8, 12))
         centre.grid_rowconfigure(3, weight=1)
 
@@ -1151,7 +1252,7 @@ class AstatApp:
                 grid, text=label, font=self.font_hud,
                 fg_color=GLASS2, hover_color=ACCENT_DIM,
                 border_color=LINE, border_width=1,
-                text_color=TEXT_SECONDARY, height=32, corner_radius=6,
+                text_color=TEXT_SECONDARY, height=32, corner_radius=CORNER,
                 command=lambda c=cmd: self._action_rapide(c),
             )
             btn.grid(row=i // 2, column=i % 2, padx=2, pady=2, sticky="ew")
@@ -1163,7 +1264,7 @@ class AstatApp:
             pad, text=f"Écoute « {MOT_MAGIQUE} »",
             font=self.font_hud, fg_color=GLASS2, hover_color=ACCENT_DIM,
             border_color=LINE, border_width=1, text_color=TEXT_SECONDARY,
-            height=34, corner_radius=8, command=self.toggle_background_listening,
+            height=34, corner_radius=CORNER, command=self.toggle_background_listening,
         )
         self.toggle_button.pack(fill="x", pady=2)
         self._btn(pad, "Plein écran (F11)", self._toggle_fullscreen, height=30).pack(fill="x", pady=2)
@@ -1183,7 +1284,7 @@ class AstatApp:
         self.entry = ctk.CTkEntry(
             inner, placeholder_text=f"Parler à {NOM_IA}…  (Ctrl+K)",
             fg_color=BG_INPUT, border_color=LINE, border_width=1,
-            text_color=TEXT_PRIMARY, font=self.font_chat, height=36, corner_radius=8,
+            text_color=TEXT_PRIMARY, font=self.font_chat, height=36, corner_radius=CORNER,
         )
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.entry.bind("<Return>", self.send_text_message)
@@ -1464,7 +1565,7 @@ class AstatApp:
         bubble = ctk.CTkFrame(
             conteneur,
             fg_color=BUBBLE_ASTAT if est_astat else BUBBLE_USER,
-            corner_radius=12,
+            corner_radius=CORNER_SOFT,
             border_width=1,
             border_color=GLASS_BORDER if est_astat else LINE,
         )

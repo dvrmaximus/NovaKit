@@ -1,4 +1,4 @@
-"""Chrome commun type panneau de controle (style Adrenalin) pour les modes."""
+"""Chrome commun pour les vues modes — in-HUD (defaut) ou Toplevel optionnel."""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ import customtkinter as ctk
 
 import ui.hud_theme as theme
 from ui.hud_widgets import mono
+
+# Langage visuel carre / rectangulaire (chrome modes)
+CORNER = 2
+CORNER_SOFT = 4
 
 
 class LiveGraph(ctk.CTkFrame):
@@ -24,15 +28,14 @@ class LiveGraph(ctk.CTkFrame):
         height: int = 88,
         **kw,
     ):
-        super().__init__(master, fg_color=theme.BG_PANEL2, corner_radius=8, **kw)
+        super().__init__(master, fg_color=theme.BG_PANEL2, corner_radius=CORNER, **kw)
         self._unit = unit
         self._ymax = max(1.0, float(ymax))
         self._max_points = max(12, int(max_points))
         self._vals: list[float] = []
-        self._last_draw = -1.0
 
         head = ctk.CTkFrame(self, fg_color="transparent")
-        head.pack(fill="x", padx=10, pady=(8, 0))
+        head.pack(fill="x", padx=8, pady=(6, 0))
         self.title_lbl = ctk.CTkLabel(
             head, text=title, font=mono(10, True), text_color=theme.TEXT_SECONDARY,
         )
@@ -49,7 +52,7 @@ class LiveGraph(ctk.CTkFrame):
             highlightthickness=0,
             bd=0,
         )
-        self.canvas.pack(fill="x", padx=8, pady=(4, 8))
+        self.canvas.pack(fill="x", padx=6, pady=(4, 6))
         self.bind("<Configure>", lambda e: self._redraw())
         self.canvas.bind("<Configure>", lambda e: self._redraw())
 
@@ -65,7 +68,6 @@ class LiveGraph(ctk.CTkFrame):
         v = float(value)
         self._vals.append(v)
         if len(self._vals) > self._max_points:
-            # downsample : garde 1 sur 2 des plus anciens si overflow fort
             if len(self._vals) > self._max_points + 10:
                 self._vals = self._vals[::2][-self._max_points :]
             else:
@@ -107,17 +109,104 @@ class LiveGraph(ctk.CTkFrame):
             y = pad + usable_h * (1.0 - min(1.0, max(0.0, v / ymax)))
             pts.extend([x, y])
         accent = theme.ACCENT
-        # zone sous la courbe
         fill_pts = list(pts) + [w - pad, h - pad, pad, h - pad]
         try:
             c.create_polygon(fill_pts, fill=theme.ACCENT_GLOW, outline="")
         except Exception:
             pass
-        c.create_line(*pts, fill=accent, width=2, smooth=True)
+        c.create_line(*pts, fill=accent, width=2, smooth=False)
+
+
+class HudModePanel(ctk.CTkFrame):
+    """Panneau mode embarque dans Astat : sous-onglets horizontaux + pages."""
+
+    def __init__(
+        self,
+        master,
+        title: str,
+        nav: list[tuple[str, str]],
+        status: bool = True,
+        **kw,
+    ):
+        super().__init__(master, fg_color="transparent", **kw)
+        self._nav_btns: dict[str, ctk.CTkButton] = {}
+        self._pages: dict[str, ctk.CTkFrame] = {}
+        self._current = ""
+
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.pack(fill="x", pady=(0, 4))
+        ctk.CTkLabel(
+            head, text=title, font=mono(11, True), text_color=theme.TEXT_PRIMARY,
+        ).pack(side="left")
+        self.status_lbl = ctk.CTkLabel(
+            head, text="", font=mono(8), text_color=theme.TEXT_MUTED,
+        )
+        if status:
+            self.status_lbl.pack(side="right")
+
+        tabs = ctk.CTkFrame(self, fg_color="transparent")
+        tabs.pack(fill="x", pady=(0, 6))
+        for key, label in nav:
+            btn = ctk.CTkButton(
+                tabs,
+                text=label,
+                font=mono(9, True),
+                height=24,
+                corner_radius=CORNER,
+                border_width=1,
+                border_color=theme.LINE,
+                fg_color=theme.GLASS2,
+                hover_color=theme.ACCENT_DIM,
+                text_color=theme.TEXT_SECONDARY,
+                command=lambda k=key: self.show_page(k),
+            )
+            btn.pack(side="left", expand=True, fill="x", padx=1)
+            self._nav_btns[key] = btn
+
+        self.content = ctk.CTkFrame(self, fg_color="transparent")
+        self.content.pack(fill="both", expand=True)
+        for key, _label in nav:
+            page = ctk.CTkFrame(self.content, fg_color="transparent")
+            self._pages[key] = page
+
+        if nav:
+            self.show_page(nav[0][0])
+
+    def page(self, key: str) -> ctk.CTkFrame:
+        return self._pages[key]
+
+    def show_page(self, key: str):
+        if key not in self._pages:
+            return
+        for k, fr in self._pages.items():
+            if k == key:
+                fr.pack(fill="both", expand=True)
+            else:
+                fr.pack_forget()
+        self._current = key
+        for k, b in self._nav_btns.items():
+            if k == key:
+                b.configure(
+                    fg_color=theme.ACCENT_DIM,
+                    text_color=theme.TEXT_PRIMARY,
+                    border_color=theme.GLASS_BORDER_HOT,
+                )
+            else:
+                b.configure(
+                    fg_color=theme.GLASS2,
+                    text_color=theme.TEXT_SECONDARY,
+                    border_color=theme.LINE,
+                )
+
+    def set_status(self, text: str):
+        try:
+            self.status_lbl.configure(text=text)
+        except Exception:
+            pass
 
 
 class ModeShell(ctk.CTkToplevel):
-    """Fenetre panneau : barre titre + sidebar gauche + pages."""
+    """Fenetre optionnelle (avance) — meme chrome carre que le HUD."""
 
     def __init__(
         self,
@@ -146,34 +235,33 @@ class ModeShell(ctk.CTkToplevel):
             self.geometry(f"{width}x{height}")
             self.minsize(720, 480)
 
-        # —— Header ——
-        head = ctk.CTkFrame(self, fg_color=theme.BG_DEEP, height=56, corner_radius=0)
+        head = ctk.CTkFrame(self, fg_color=theme.BG_DEEP, height=52, corner_radius=0)
         head.pack(fill="x")
         head.pack_propagate(False)
-        accent_bar = ctk.CTkFrame(head, fg_color=theme.ACCENT, width=4, corner_radius=0)
+        accent_bar = ctk.CTkFrame(head, fg_color=theme.ACCENT, width=3, corner_radius=0)
         accent_bar.pack(side="left", fill="y")
         titles = ctk.CTkFrame(head, fg_color="transparent")
-        titles.pack(side="left", fill="y", padx=14)
+        titles.pack(side="left", fill="y", padx=12)
         ctk.CTkLabel(
-            titles, text=title, font=mono(15, True), text_color=theme.TEXT_PRIMARY,
-        ).pack(anchor="w", pady=(10, 0))
+            titles, text=title, font=mono(14, True), text_color=theme.TEXT_PRIMARY,
+        ).pack(anchor="w", pady=(8, 0))
         ctk.CTkLabel(
             titles, text=subtitle, font=mono(9), text_color=theme.TEXT_MUTED,
         ).pack(anchor="w")
         self.status_lbl = ctk.CTkLabel(
             head, text="", font=mono(9), text_color=theme.TEXT_MUTED,
         )
-        self.status_lbl.pack(side="right", padx=16)
+        self.status_lbl.pack(side="right", padx=14)
 
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True)
 
-        self.sidebar = ctk.CTkFrame(body, fg_color=theme.BG_PANEL, width=168, corner_radius=0)
+        self.sidebar = ctk.CTkFrame(body, fg_color=theme.BG_PANEL, width=148, corner_radius=0)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
         ctk.CTkLabel(
             self.sidebar, text="NAVIGATION", font=mono(8, True), text_color=theme.TEXT_MUTED,
-        ).pack(anchor="w", padx=14, pady=(16, 8))
+        ).pack(anchor="w", padx=12, pady=(14, 6))
 
         self.content = ctk.CTkFrame(body, fg_color=theme.BG_MAIN, corner_radius=0)
         self.content.pack(side="left", fill="both", expand=True)
@@ -185,8 +273,8 @@ class ModeShell(ctk.CTkToplevel):
                 self.sidebar,
                 text=label,
                 font=mono(11),
-                height=36,
-                corner_radius=6,
+                height=32,
+                corner_radius=CORNER,
                 anchor="w",
                 fg_color="transparent",
                 hover_color=theme.ACCENT_DIM,
@@ -194,7 +282,7 @@ class ModeShell(ctk.CTkToplevel):
                 border_width=0,
                 command=lambda k=key: self.show_page(k),
             )
-            btn.pack(fill="x", padx=10, pady=2)
+            btn.pack(fill="x", padx=8, pady=2)
             self._nav_btns[key] = btn
 
         self.bind("<Escape>", lambda e: self._fermer())
@@ -212,7 +300,7 @@ class ModeShell(ctk.CTkToplevel):
             return
         for k, fr in self._pages.items():
             if k == key:
-                fr.pack(fill="both", expand=True, padx=16, pady=14)
+                fr.pack(fill="both", expand=True, padx=14, pady=12)
             else:
                 fr.pack_forget()
         self._current = key
@@ -270,14 +358,14 @@ class ModeShell(ctk.CTkToplevel):
 
 def labeled_switch(parent, text: str, var: ctk.BooleanVar, command=None) -> ctk.CTkFrame:
     row = ctk.CTkFrame(parent, fg_color="transparent")
-    ctk.CTkLabel(row, text=text, font=mono(11), text_color=theme.TEXT_SECONDARY).pack(
+    ctk.CTkLabel(row, text=text, font=mono(10), text_color=theme.TEXT_SECONDARY).pack(
         side="left",
     )
     sw = ctk.CTkSwitch(
         row,
         text="",
         variable=var,
-        width=42,
+        width=40,
         progress_color=theme.ACCENT,
         button_color=theme.TEXT_PRIMARY,
         button_hover_color=theme.ACCENT_SOFT,
@@ -299,7 +387,7 @@ def labeled_slider(
     box = ctk.CTkFrame(parent, fg_color="transparent")
     top = ctk.CTkFrame(box, fg_color="transparent")
     top.pack(fill="x")
-    ctk.CTkLabel(top, text=text, font=mono(11), text_color=theme.TEXT_SECONDARY).pack(side="left")
+    ctk.CTkLabel(top, text=text, font=mono(10), text_color=theme.TEXT_SECONDARY).pack(side="left")
     val_lbl = ctk.CTkLabel(top, text="", font=mono(10, True), text_color=theme.ACCENT_SOFT)
     val_lbl.pack(side="right")
 

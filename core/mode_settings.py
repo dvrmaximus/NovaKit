@@ -35,7 +35,7 @@ DEFAULTS: dict[str, Any] = {
         "bench_duration_s": 2.5,
     },
     "global": {
-        "open_window_on_mode": True,
+        "open_window_on_mode": False,  # defaut : tout dans Astat (onglets)
         "always_on_top": False,
         "opacity": 0.96,
     },
@@ -145,7 +145,7 @@ def _sanitize(data: dict[str, Any]) -> dict[str, Any]:
         g["bench_duration_s"] = 2.5
 
     gl = out["global"]
-    gl["open_window_on_mode"] = bool(gl.get("open_window_on_mode", True))
+    gl["open_window_on_mode"] = bool(gl.get("open_window_on_mode", False))
     gl["always_on_top"] = bool(gl.get("always_on_top", False))
     try:
         gl["opacity"] = max(0.55, min(1.0, float(gl.get("opacity", 0.96))))

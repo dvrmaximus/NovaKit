@@ -62,8 +62,8 @@ def set_mode(mode: str, *, persist: bool = True, announce: bool = True) -> str:
         if cible == "assist":
             return f"Mode {label} : journal et commandes."
         if cible == "performance":
-            return f"Mode {label} : centre telemetrie ouvert (CPU, RAM, GPU)."
-        return f"Mode {label} : centre gaming ouvert (FPS, presets, bench)."
+            return f"Mode {label} : vue telemetrie dans Astat (CPU, RAM, GPU)."
+        return f"Mode {label} : vue gaming dans Astat (FPS, presets, bench)."
     return label
 
 

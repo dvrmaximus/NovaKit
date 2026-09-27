@@ -1,4 +1,4 @@
-"""Centre Gaming — config PC, presets, micro-bench, FPS (style Adrenalin)."""
+"""Vue Gaming embarquee dans Astat (presets, micro-bench, FPS)."""
 
 from __future__ import annotations
 
@@ -17,15 +17,15 @@ from core.gaming_estimate import (
     micro_benchmark,
 )
 from ui.hud_widgets import SectionTitle, mono
-from ui.mode_shell import LiveGraph, ModeShell, labeled_slider, labeled_switch
-
-_GAMING_WIN: "GamingWindow | None" = None
+from ui.mode_shell import CORNER, HudModePanel, LiveGraph, labeled_slider, labeled_switch
 
 _RES_OPTIONS = ("auto", "1080p", "1440p", "4k")
 _QUAL_OPTIONS = ("auto", "low", "medium", "high", "ultra")
 
 
-class GamingWindow(ModeShell):
+class GamingPanel(HudModePanel):
+    """Contenu Gaming — vit dans le panneau gauche du HUD."""
+
     def __init__(
         self,
         master,
@@ -33,47 +33,45 @@ class GamingWindow(ModeShell):
         get_frame_ms: Callable | None = None,
         set_fps_tracking: Callable | None = None,
         on_bench_done: Callable | None = None,
-        on_close: Callable | None = None,
         on_settings_changed: Callable | None = None,
+        wraplength: int = 340,
+        **kw,
     ):
         self._get_hud_fps = get_hud_fps
         self._get_frame_ms = get_frame_ms
         self._set_fps_tracking = set_fps_tracking
         self._on_bench_done = on_bench_done
         self._on_settings_changed = on_settings_changed
+        self._wrap = wraplength
         self._tick_id = None
+        self._active = False
         self._cfg = mode_settings.get_section("gaming")
+        self._last_estimates = []
 
         super().__init__(
             master,
-            title="Centre Gaming",
-            subtitle="Presets · FPS HUD · micro-bench",
+            title="Gaming",
             nav=[
-                ("overview", "Vue d'ensemble"),
+                ("overview", "Resume"),
                 ("presets", "Presets"),
-                ("bench", "Micro-bench"),
+                ("bench", "Bench"),
                 ("settings", "Reglages"),
             ],
-            width=980,
-            height=660,
-            on_close=self._wrap_close(on_close),
+            **kw,
         )
         self._build_overview()
         self._build_presets()
         self._build_bench()
         self._build_settings()
-        self.after(150, self.refresh_hardware)
-        self._schedule_tick()
-        self._apply_fps_tracking()
 
-    def _wrap_close(self, on_close):
-        def _cb():
-            global _GAMING_WIN
+    def set_active(self, active: bool):
+        self._active = bool(active)
+        if self._active:
+            self.after(80, self.refresh_hardware)
+            self._apply_fps_tracking()
+            self._schedule_tick()
+        else:
             self._stop_tick()
-            _GAMING_WIN = None
-            if on_close:
-                on_close()
-        return _cb
 
     def _stop_tick(self):
         if self._tick_id is not None:
@@ -85,6 +83,8 @@ class GamingWindow(ModeShell):
 
     def _schedule_tick(self):
         self._stop_tick()
+        if not self._active:
+            return
         try:
             if not self.winfo_exists():
                 return
@@ -98,165 +98,132 @@ class GamingWindow(ModeShell):
         scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
 
-        top = ctk.CTkFrame(scroll, fg_color="transparent")
-        top.pack(fill="x")
-        left = ctk.CTkFrame(top, fg_color=theme.BG_PANEL2, corner_radius=8)
-        left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+        fps_card = ctk.CTkFrame(
+            scroll, fg_color=theme.BG_PANEL2, corner_radius=CORNER,
+            border_width=1, border_color=theme.LINE,
+        )
+        fps_card.pack(fill="x", pady=(0, 6))
         ctk.CTkLabel(
-            left, text="FPS HUD", font=mono(9), text_color=theme.TEXT_MUTED,
-        ).pack(anchor="w", padx=14, pady=(12, 0))
+            fps_card, text="FPS HUD", font=mono(8), text_color=theme.TEXT_MUTED,
+        ).pack(anchor="w", padx=10, pady=(8, 0))
         self.fps_big = ctk.CTkLabel(
-            left, text="—", font=mono(36, True), text_color=theme.TEXT_PRIMARY,
+            fps_card, text="—", font=mono(28, True), text_color=theme.TEXT_PRIMARY,
         )
-        self.fps_big.pack(anchor="w", padx=14)
+        self.fps_big.pack(anchor="w", padx=10)
         self.frame_lbl = ctk.CTkLabel(
-            left, text="frame — ms", font=mono(10), text_color=theme.TEXT_SECONDARY,
+            fps_card, text="frame — ms", font=mono(9), text_color=theme.TEXT_SECONDARY,
         )
-        self.frame_lbl.pack(anchor="w", padx=14, pady=(0, 12))
+        self.frame_lbl.pack(anchor="w", padx=10, pady=(0, 8))
 
-        right = ctk.CTkFrame(top, fg_color=theme.BG_PANEL2, corner_radius=8)
-        right.pack(side="left", fill="both", expand=True, padx=(6, 0))
+        hw_card = ctk.CTkFrame(
+            scroll, fg_color=theme.BG_PANEL2, corner_radius=CORNER,
+            border_width=1, border_color=theme.LINE,
+        )
+        hw_card.pack(fill="x", pady=(0, 6))
         ctk.CTkLabel(
-            right, text="Materiel", font=mono(9), text_color=theme.TEXT_MUTED,
-        ).pack(anchor="w", padx=14, pady=(12, 0))
+            hw_card, text="Materiel", font=mono(8), text_color=theme.TEXT_MUTED,
+        ).pack(anchor="w", padx=10, pady=(8, 0))
         self.hw_lbl = ctk.CTkLabel(
-            right, text="Detection…", font=mono(10), text_color=theme.TEXT_SECONDARY,
-            justify="left", wraplength=360,
+            hw_card, text="Detection…", font=mono(9), text_color=theme.TEXT_SECONDARY,
+            justify="left", wraplength=self._wrap,
         )
-        self.hw_lbl.pack(anchor="w", padx=14, pady=(4, 12))
+        self.hw_lbl.pack(anchor="w", padx=10, pady=(2, 8))
 
-        self.g_fps = LiveGraph(scroll, title="FPS (HUD)", unit="FPS", ymax=120, max_points=60, height=110)
-        self.g_fps.pack(fill="x", pady=(12, 4))
-        self.g_ft = LiveGraph(scroll, title="Frametime", unit="ms", ymax=40, max_points=60, height=90)
-        self.g_ft.pack(fill="x", pady=4)
+        self.g_fps = LiveGraph(scroll, title="FPS", unit="FPS", ymax=120, max_points=60, height=70)
+        self.g_fps.pack(fill="x", pady=3)
+        self.g_ft = LiveGraph(scroll, title="Frametime", unit="ms", ymax=40, max_points=60, height=64)
+        self.g_ft.pack(fill="x", pady=3)
 
-        btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        btn_row.pack(fill="x", pady=(10, 0))
         ctk.CTkButton(
-            btn_row, text="Relire le PC", font=mono(10, True), height=32,
-            fg_color=theme.GLASS2, hover_color=theme.ACCENT_DIM,
+            scroll, text="Relire le PC", font=mono(9, True), height=28,
+            corner_radius=CORNER, fg_color=theme.GLASS2, hover_color=theme.ACCENT_DIM,
             border_width=1, border_color=theme.LINE, text_color=theme.TEXT_SECONDARY,
             command=self.refresh_hardware,
-        ).pack(side="left", padx=(0, 6))
-        ctk.CTkButton(
-            btn_row, text="Ouvrir presets", font=mono(10), height=32,
-            fg_color=theme.ACCENT_DIM, hover_color=theme.GLASS_BORDER_HOT,
-            text_color=theme.TEXT_PRIMARY,
-            command=lambda: self.show_page("presets"),
-        ).pack(side="left")
-
+        ).pack(fill="x", pady=(8, 0))
         ctk.CTkLabel(
             scroll,
-            text="Les estimations sont indicatives — pas une mesure in-game.",
-            font=mono(9), text_color=theme.TEXT_MUTED,
-        ).pack(anchor="w", pady=(12, 0))
+            text="Estimations indicatives — pas une mesure in-game.",
+            font=mono(8), text_color=theme.TEXT_MUTED, wraplength=self._wrap, justify="left",
+        ).pack(anchor="w", pady=(8, 0))
 
     def _build_presets(self):
         page = self.page("presets")
-        SectionTitle(page, "Estimations de presets").pack(fill="x", pady=(0, 6))
+        SectionTitle(page, "Presets estimes").pack(fill="x", pady=(0, 4))
         filt = ctk.CTkFrame(page, fg_color="transparent")
-        filt.pack(fill="x", pady=(0, 8))
-        ctk.CTkLabel(filt, text="Resolution cible", font=mono(10), text_color=theme.TEXT_MUTED).pack(
-            side="left", padx=(0, 8),
-        )
+        filt.pack(fill="x", pady=(0, 6))
         self.v_res = ctk.StringVar(value=str(self._cfg.get("resolution_preset", "auto")))
         self.res_menu = ctk.CTkOptionMenu(
             filt, values=list(_RES_OPTIONS), variable=self.v_res,
-            font=mono(10), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
+            font=mono(9), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
             dropdown_fg_color=theme.BG_PANEL, command=lambda _: self._on_preset_filter(),
-            width=100,
+            width=90, corner_radius=CORNER, height=26,
         )
-        self.res_menu.pack(side="left", padx=(0, 16))
-        ctk.CTkLabel(filt, text="Qualite", font=mono(10), text_color=theme.TEXT_MUTED).pack(
-            side="left", padx=(0, 8),
-        )
+        self.res_menu.pack(side="left", padx=(0, 6))
         self.v_qual = ctk.StringVar(value=str(self._cfg.get("quality_preset", "auto")))
         self.qual_menu = ctk.CTkOptionMenu(
             filt, values=list(_QUAL_OPTIONS), variable=self.v_qual,
-            font=mono(10), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
+            font=mono(9), fg_color=theme.GLASS2, button_color=theme.ACCENT_DIM,
             dropdown_fg_color=theme.BG_PANEL, command=lambda _: self._on_preset_filter(),
-            width=110,
+            width=90, corner_radius=CORNER, height=26,
         )
         self.qual_menu.pack(side="left")
-
         self.est_box = ctk.CTkScrollableFrame(page, fg_color="transparent")
         self.est_box.pack(fill="both", expand=True)
-        self._last_estimates = []
 
     def _build_bench(self):
         page = self.page("bench")
-        SectionTitle(page, "Micro-benchmark CPU").pack(fill="x", pady=(0, 6))
+        SectionTitle(page, "Micro-bench CPU").pack(fill="x", pady=(0, 4))
         ctk.CTkLabel(
             page,
-            text="Charge synthetique legere (quelques secondes). Annulable. "
-                 "Ne remplace pas un bench jeu.",
-            font=mono(10), text_color=theme.TEXT_SECONDARY, wraplength=700, justify="left",
-        ).pack(anchor="w", pady=(0, 10))
+            text="Charge synthetique legere. Annulable.",
+            font=mono(9), text_color=theme.TEXT_SECONDARY, wraplength=self._wrap, justify="left",
+        ).pack(anchor="w", pady=(0, 8))
 
         self.v_bench_dur = ctk.DoubleVar(value=float(self._cfg.get("bench_duration_s", 2.5)))
         box, _ = labeled_slider(
             page, "Duree (s)", self.v_bench_dur, 1.0, 5.0,
             command=self._persist_settings, fmt="{:.1f} s",
         )
-        box.pack(fill="x", pady=6)
+        box.pack(fill="x", pady=4)
 
         self.bench_btn = ctk.CTkButton(
-            page, text="Lancer le micro-bench", font=mono(12, True), height=40,
-            fg_color=theme.ACCENT_DIM, hover_color=theme.GLASS_BORDER_HOT,
-            text_color=theme.TEXT_PRIMARY, command=self._lancer_bench,
+            page, text="Lancer", font=mono(11, True), height=34,
+            corner_radius=CORNER, fg_color=theme.ACCENT_DIM,
+            hover_color=theme.GLASS_BORDER_HOT, text_color=theme.TEXT_PRIMARY,
+            command=self._lancer_bench,
         )
-        self.bench_btn.pack(fill="x", pady=(8, 4))
-        self.bench_status = ctk.CTkLabel(page, text="", font=mono(11), text_color=theme.TEXT_MUTED)
-        self.bench_status.pack(anchor="w", pady=4)
+        self.bench_btn.pack(fill="x", pady=(6, 4))
+        self.bench_status = ctk.CTkLabel(page, text="", font=mono(9), text_color=theme.TEXT_MUTED)
+        self.bench_status.pack(anchor="w", pady=2)
         self.bench_result = ctk.CTkLabel(
-            page, text="", font=mono(14, True), text_color=theme.ACCENT_SOFT,
+            page, text="", font=mono(12, True), text_color=theme.ACCENT_SOFT,
         )
-        self.bench_result.pack(anchor="w", pady=(8, 0))
+        self.bench_result.pack(anchor="w", pady=(6, 0))
 
     def _build_settings(self):
         page = self.page("settings")
         scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
-        SectionTitle(scroll, "Estimations").pack(fill="x", pady=(0, 8))
+        SectionTitle(scroll, "Estimations").pack(fill="x", pady=(0, 6))
 
         self.v_aggr = ctk.DoubleVar(value=float(self._cfg.get("aggressiveness", 0.5)))
         box, _ = labeled_slider(
-            scroll,
-            "Aggressivite estimation (prudent ← → optimiste)",
-            self.v_aggr, 0.0, 1.0,
+            scroll, "Aggressivite", self.v_aggr, 0.0, 1.0,
             command=self._persist_settings, fmt="{:.0%}",
         )
-        box.pack(fill="x", pady=6)
+        box.pack(fill="x", pady=4)
 
         self.v_fps_ov = ctk.BooleanVar(value=bool(self._cfg.get("hud_fps_overlay", True)))
         labeled_switch(
-            scroll, "Suivi FPS / frametime du HUD (overlay metriques)",
-            self.v_fps_ov, command=self._persist_settings,
-        ).pack(fill="x", pady=6)
-
-        SectionTitle(scroll, "Fenetre").pack(fill="x", pady=(16, 8))
-        gl = mode_settings.get_section("global")
-        self.v_top = ctk.BooleanVar(value=bool(gl.get("always_on_top")))
-        self.v_open = ctk.BooleanVar(value=bool(gl.get("open_window_on_mode", True)))
-        self.v_opacity = ctk.DoubleVar(value=float(gl.get("opacity", 0.96)))
-        labeled_switch(scroll, "Toujours au premier plan", self.v_top, command=self._persist_settings).pack(
-            fill="x", pady=3,
-        )
-        labeled_switch(
-            scroll, "Ouvrir ce panneau au passage en mode Gaming", self.v_open,
-            command=self._persist_settings,
-        ).pack(fill="x", pady=3)
-        box, _ = labeled_slider(
-            scroll, "Opacite panneau", self.v_opacity, 0.55, 1.0,
-            command=self._persist_settings, fmt="{:.0%}",
-        )
-        box.pack(fill="x", pady=6)
+            scroll, "Suivi FPS HUD", self.v_fps_ov, command=self._persist_settings,
+        ).pack(fill="x", pady=4)
 
         ctk.CTkButton(
-            scroll, text="Appliquer & recalculer", font=mono(11, True), height=34,
-            fg_color=theme.ACCENT_DIM, hover_color=theme.GLASS_BORDER_HOT,
-            text_color=theme.TEXT_PRIMARY, command=self._persist_and_refresh,
-        ).pack(anchor="w", pady=(12, 0))
+            scroll, text="Appliquer & recalculer", font=mono(10, True), height=30,
+            corner_radius=CORNER, fg_color=theme.ACCENT_DIM,
+            hover_color=theme.GLASS_BORDER_HOT, text_color=theme.TEXT_PRIMARY,
+            command=self._persist_and_refresh,
+        ).pack(anchor="w", pady=(10, 0))
 
     def _on_preset_filter(self):
         self._persist_settings()
@@ -271,17 +238,11 @@ class GamingWindow(ModeShell):
                 "hud_fps_overlay": bool(self.v_fps_ov.get()),
                 "bench_duration_s": float(self.v_bench_dur.get()),
             },
-            "global": {
-                "always_on_top": bool(self.v_top.get()),
-                "open_window_on_mode": bool(self.v_open.get()),
-                "opacity": float(self.v_opacity.get()),
-            },
         }
         mode_settings.save(patch)
         self._cfg = mode_settings.get_section("gaming")
-        self.apply_window_prefs()
         self._apply_fps_tracking()
-        self.set_status("reglages enregistres")
+        self.set_status("ok")
         if self._on_settings_changed:
             try:
                 self._on_settings_changed()
@@ -323,6 +284,21 @@ class GamingWindow(ModeShell):
         elif fps:
             self.frame_lbl.configure(text=f"frame  {1000.0 / fps:.1f} ms")
 
+    def update_fps(self, fps: float | None, frame_ms: float | None = None):
+        """Compat tick HUD externe."""
+        if fps is None:
+            self.fps_big.configure(text="—")
+            return
+        self.fps_big.configure(text=f"{fps:.0f}")
+        if frame_ms is not None:
+            self.frame_lbl.configure(text=f"frame  {frame_ms:.1f} ms")
+
+    def set_hw_summary(self, text: str):
+        try:
+            self.hw_lbl.configure(text=text)
+        except Exception:
+            pass
+
     def refresh_hardware(self):
         def work():
             try:
@@ -350,14 +326,11 @@ class GamingWindow(ModeShell):
         qual_f = (self.v_qual.get() or "auto").lower()
         shown = 0
         for e in estimates:
-            if res_f != "auto" and e.resolution.lower() != res_f:
-                # affiche quand meme avec note si filtre strict trop vide — on filtre soft
-                pass
             card = ctk.CTkFrame(
-                self.est_box, fg_color=theme.BG_PANEL2, corner_radius=8,
+                self.est_box, fg_color=theme.BG_PANEL2, corner_radius=CORNER,
                 border_width=1, border_color=theme.LINE,
             )
-            card.pack(fill="x", pady=4)
+            card.pack(fill="x", pady=3)
             dim = False
             if res_f != "auto" and e.resolution.lower() != res_f:
                 dim = True
@@ -366,21 +339,21 @@ class GamingWindow(ModeShell):
             title_c = theme.TEXT_MUTED if dim else theme.TEXT_PRIMARY
             accent_c = theme.TEXT_MUTED if dim else theme.ACCENT_SOFT
             ctk.CTkLabel(
-                card, text=e.scenario, font=mono(11, True), text_color=title_c,
-            ).pack(anchor="w", padx=12, pady=(10, 0))
+                card, text=e.scenario, font=mono(10, True), text_color=title_c,
+            ).pack(anchor="w", padx=10, pady=(8, 0))
             ctk.CTkLabel(
                 card,
-                text=f"{e.resolution}  ·  ~{e.fps_cible} FPS  ·  {e.qualite} / shaders {e.shaders}",
-                font=mono(10), text_color=accent_c,
-            ).pack(anchor="w", padx=12)
+                text=f"{e.resolution}  ·  ~{e.fps_cible} FPS  ·  {e.qualite}",
+                font=mono(9), text_color=accent_c,
+            ).pack(anchor="w", padx=10)
             ctk.CTkLabel(
-                card, text=e.resume, font=mono(9), text_color=theme.TEXT_MUTED,
-                wraplength=700, justify="left",
-            ).pack(anchor="w", padx=12, pady=(0, 10))
+                card, text=e.resume, font=mono(8), text_color=theme.TEXT_MUTED,
+                wraplength=self._wrap, justify="left",
+            ).pack(anchor="w", padx=10, pady=(0, 8))
             shown += 1
         if shown == 0:
             ctk.CTkLabel(
-                self.est_box, text="Aucune estimation.", font=mono(10), text_color=theme.TEXT_MUTED,
+                self.est_box, text="Aucune estimation.", font=mono(9), text_color=theme.TEXT_MUTED,
             ).pack(anchor="w")
 
     def _lancer_bench(self):
@@ -391,7 +364,7 @@ class GamingWindow(ModeShell):
 
         duree = float(self.v_bench_dur.get())
         self.bench_btn.configure(text="Stop")
-        self.bench_status.configure(text="Simulation legere en cours…")
+        self.bench_status.configure(text="En cours…")
         self.bench_result.configure(text="")
         fps_samples: list[float] = []
 
@@ -409,15 +382,15 @@ class GamingWindow(ModeShell):
             avg_fps = sum(fps_samples) / len(fps_samples) if fps_samples else None
 
             def done():
-                self.bench_btn.configure(text="Lancer le micro-bench")
+                self.bench_btn.configure(text="Lancer")
                 if result.get("cancelled"):
-                    self.bench_status.configure(text="Bench annule")
+                    self.bench_status.configure(text="Annule")
                     self.bench_result.configure(text="")
                 else:
                     extra = f"  ·  HUD ~{avg_fps:.0f} FPS" if avg_fps else ""
-                    self.bench_status.configure(text=f"Termine en {result.get('elapsed_s')} s{extra}")
+                    self.bench_status.configure(text=f"OK {result.get('elapsed_s')} s{extra}")
                     self.bench_result.configure(
-                        text=f"Score CPU  ~{result['ops_m_per_s']} Mops/s"
+                        text=f"~{result['ops_m_per_s']} Mops/s"
                     )
                 if self._on_bench_done:
                     self._on_bench_done(result, avg_fps)
@@ -425,6 +398,11 @@ class GamingWindow(ModeShell):
             self.after(0, done)
 
         threading.Thread(target=work, daemon=True).start()
+
+
+# —— Fenetre optionnelle (avance) ——
+
+_GAMING_WIN = None
 
 
 def ouvrir_gaming(
@@ -435,8 +413,10 @@ def ouvrir_gaming(
     on_bench_done=None,
     on_close=None,
     on_settings_changed=None,
-) -> GamingWindow:
+):
     global _GAMING_WIN
+    from ui.mode_shell import ModeShell
+
     if _GAMING_WIN is not None:
         try:
             if _GAMING_WIN.winfo_exists():
@@ -444,15 +424,41 @@ def ouvrir_gaming(
                 return _GAMING_WIN
         except Exception:
             _GAMING_WIN = None
-    _GAMING_WIN = GamingWindow(
-        master,
-        get_hud_fps=get_hud_fps,
-        get_frame_ms=get_frame_ms,
-        set_fps_tracking=set_fps_tracking,
-        on_bench_done=on_bench_done,
-        on_close=on_close,
-        on_settings_changed=on_settings_changed,
-    )
+
+    class _Win(ModeShell):
+        def __init__(self):
+            super().__init__(
+                master,
+                title="Gaming (avance)",
+                subtitle="Vue detachee — preferer les onglets Astat",
+                nav=[("main", "Contenu")],
+                width=720,
+                height=640,
+                on_close=self._on_closed,
+            )
+            self.panel = GamingPanel(
+                self.page("main"),
+                get_hud_fps=get_hud_fps,
+                get_frame_ms=get_frame_ms,
+                set_fps_tracking=set_fps_tracking,
+                on_bench_done=on_bench_done,
+                on_settings_changed=on_settings_changed,
+                wraplength=620,
+            )
+            self.panel.pack(fill="both", expand=True)
+            self.panel.set_active(True)
+
+        def _on_closed(self):
+            global _GAMING_WIN
+            try:
+                self.panel.set_active(False)
+            except Exception:
+                pass
+            _GAMING_WIN = None
+            if on_close:
+                on_close()
+
+    _GAMING_WIN = _Win()
     return _GAMING_WIN
 
 
@@ -465,13 +471,6 @@ def fermer_gaming() -> None:
         except Exception:
             pass
     _GAMING_WIN = None
-
-
-def gaming_ouverte() -> bool:
-    try:
-        return _GAMING_WIN is not None and bool(_GAMING_WIN.winfo_exists())
-    except Exception:
-        return False
 
 
 def fermer_tous() -> None:

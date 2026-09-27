@@ -1,4 +1,4 @@
-"""Bus d'evenements pour ouvrir / fermer les panneaux Performance / Gaming."""
+"""Bus d'evenements pour basculer les vues Performance / Gaming dans Astat."""
 
 from __future__ import annotations
 
@@ -33,14 +33,14 @@ def request(action: str) -> str:
     }
     action = aliases.get(action, action)
     if action not in ("open_perf", "open_gaming", "close_all", "focus_perf", "focus_gaming"):
-        return "Panneau inconnu."
+        return "Vue inconnue."
     for cb in list(_listeners):
         try:
             cb(action)
         except Exception:
             pass
     if action == "open_perf" or action == "focus_perf":
-        return "Centre Performance ouvert."
+        return "Vue Performance dans Astat."
     if action == "open_gaming" or action == "focus_gaming":
-        return "Centre Gaming ouvert."
-    return "Panneaux fermes."
+        return "Vue Gaming dans Astat."
+    return "Retour mode Assist."

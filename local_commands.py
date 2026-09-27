@@ -139,7 +139,7 @@ def executer_commande_locale(message: str) -> str | None:
         if any(x in t for x in ("ouvre", "ouvrir", "lance", "lancer", "cherche")):
             return ouvrir_youtube()
 
-    # —— Panneaux modes (avant « ouvre app ») ——
+    # —— Vues modes in-HUD (avant « ouvre app ») ——
     if any(
         x in t
         for x in (
@@ -151,6 +151,12 @@ def executer_commande_locale(message: str) -> str | None:
             "ferme centre performance",
             "ferme centre gaming",
             "ferme les centres",
+            "ferme performance",
+            "ferme gaming",
+            "quitte performance",
+            "quitte gaming",
+            "retour assist",
+            "reviens assist",
         )
     ):
         from core.mode_panels import request
@@ -166,6 +172,8 @@ def executer_commande_locale(message: str) -> str | None:
             "ouvre panneau performance",
             "ouvre le panneau performance",
             "ouvre perf",
+            "affiche performance",
+            "vue performance",
         )
     ):
         from core.hud_modes import set_mode
@@ -184,6 +192,8 @@ def executer_commande_locale(message: str) -> str | None:
             "ouvre le panneau gaming",
             "ouvre jeu",
             "ouvre game",
+            "affiche gaming",
+            "vue gaming",
         )
     ):
         from core.hud_modes import set_mode

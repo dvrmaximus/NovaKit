@@ -60,19 +60,17 @@ Ne partage **jamais** ton `.env` ni le dossier `data/`.
 
 ## Modes HUD
 
-Trois modes sur le panneau gauche (ou à la voix) :
+Onglets en haut d’Astat (Assist / Perf / Gaming) — **tout reste dans le HUD** :
 
 | Mode | Contenu |
 |------|---------|
-| **Assist** | Journal, modules, mobile (défaut) |
-| **Performance** | Mini-méteurs dans le HUD + **Centre Performance** (fenêtre) : graphes live, capteurs, seuils |
-| **Gaming** | Mini FPS dans le HUD + **Centre Gaming** (fenêtre) : presets, micro-bench, réglages |
+| **Assist** | Modules, mobile, journal (défaut) |
+| **Performance** | Mètres, graphes live, capteurs, seuils — pages dans Astat |
+| **Gaming** | FPS HUD, presets, micro-bench, réglages — pages dans Astat |
 
-Les centres s’ouvrent en fenêtres séparées (style panneau de contrôle) : tu peux les garder côte à côte ; les fermer ne quitte pas le HUD.
+Pas de fenêtres flottantes type Adrenalin par défaut. Une vue détachée reste optionnelle (`open_window_on_mode` dans `data/mode_settings.json`).
 
-Réglages persistés dans `data/mode_settings.json` (fréquence, alertes, opacite, always-on-top…).
-
-Exemples voix : « mode performance », « ouvre gaming », « ferme les panneaux », « mode normal ».  
+Exemples voix : « mode performance », « ouvre gaming », « retour assist », « mode normal ».  
 Les presets jeux sont des **estimations** heuristiques, pas des mesures in-game.
 
 ## English (short)

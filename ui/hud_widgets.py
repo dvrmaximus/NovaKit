@@ -18,7 +18,7 @@ def mono(size=11, bold=False):
 class CornerGlass(ctk.CTkFrame):
     """Panneau verre simple."""
 
-    def __init__(self, master, width=200, height=200, corner_radius=10, **kw):
+    def __init__(self, master, width=200, height=200, corner_radius=4, **kw):
         super().__init__(
             master,
             width=width,
@@ -61,9 +61,9 @@ class MeterBar(ctk.CTkFrame):
         ctk.CTkLabel(top, text=label, font=mono(10), text_color=theme.TEXT_SECONDARY).pack(side="left")
         self.value_lbl = ctk.CTkLabel(top, text="0%", font=mono(10), text_color=theme.TEXT_MUTED)
         self.value_lbl.pack(side="right")
-        track = ctk.CTkFrame(self, fg_color="#0C1016", height=4, corner_radius=2)
+        track = ctk.CTkFrame(self, fg_color="#0C1016", height=4, corner_radius=0)
         track.pack(fill="x", pady=(4, 0))
-        self.fill = ctk.CTkFrame(track, fg_color=theme.ACCENT_DIM, height=4, corner_radius=2, width=1)
+        self.fill = ctk.CTkFrame(track, fg_color=theme.ACCENT_DIM, height=4, corner_radius=0, width=1)
         self.fill.place(x=0, y=0, relheight=1)
         self._last_pct = -1.0
         self._last_w = 0
