@@ -17,3 +17,4 @@ pyngrok
 soundcard
 numpy
 mss
+psutil

@@ -1,0 +1,1 @@
+"""Panneaux des modes HUD."""

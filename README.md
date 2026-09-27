@@ -58,6 +58,19 @@ Ne partage **jamais** ton `.env` ni le dossier `data/`.
 
 ---
 
+## Modes HUD
+
+Trois modes sur le panneau gauche (ou à la voix) :
+
+| Mode | Contenu |
+|------|---------|
+| **Assist** | Journal, modules, mobile (défaut) |
+| **Performance** | CPU, RAM, disque, GPU/VRAM, réseau (~1–2 Hz) |
+| **Gaming** | FPS du HUD, config PC, estimations de presets jeux |
+
+Exemples voix : « mode performance », « mode gaming », « mode normal ».  
+Les presets jeux sont des **estimations** heuristiques, pas des mesures in-game. GPU % / températures : disponibles si `nvidia-smi` / GPUtil / capteurs système le permettent.
+
 ## English (short)
 
 1. Download ZIP from GitHub  

@@ -162,6 +162,7 @@ def lire_profil() -> dict:
         "accent_hex": _env("COULEUR_IA", "#4EC9D4") or "#4EC9D4",
         "accent_intensite": _env("ACCENT_INTENSITE", "1.0") or "1.0",
         "discord_webhook": _env("DISCORD_WEBHOOK"),
+        "mode_hud": (_env("MODE_HUD", "assist") or "assist").lower(),
     }
 
 
@@ -193,6 +194,7 @@ def ecrire_profil(valeurs: dict) -> None:
         f"COULEUR_IA={merged.get('couleur_ia') or merged.get('accent_hex') or '#4EC9D4'}",
         f"ACCENT_INTENSITE={merged.get('accent_intensite', '1.0')}",
         f"DISCORD_WEBHOOK={merged.get('discord_webhook', '')}",
+        f"MODE_HUD={merged.get('mode_hud', 'assist')}",
         "",
     ]
     ENV_FILE.write_text("\n".join(lignes), encoding="utf-8")

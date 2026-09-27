@@ -37,6 +37,8 @@ from ui.hud_theme import (
     SUCCESS, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, charger_accent_profil,
 )
 from ui.hud_widgets import MeterBar, SectionTitle, StatusDot, mono
+from ui.modes.views import GamingView, ModeSwitcher, PerformanceView
+from core import hud_modes
 from ui.win_desktop import (
     HotkeyListener, apply_tk_dpi_scaling, bring_to_front, compute_ui_scale,
     ensure_interactive, hwnd_toplevel, list_monitors, resolve_monitor,
@@ -72,6 +74,11 @@ class AstatApp:
         self.hub.on_message(self._on_hub_message)
         self.voice = AstatVoice()
         self._telemetry_interval = 4000
+        self._hud_mode = "assist"
+        self._mode_frames = {}
+        self._perf_view = None
+        self._gaming_view = None
+        self._mode_switcher = None
         self._last_tunnel_sig = None
         self._ui_scale = 1.0
         self._dpi_scale = 1.0
@@ -123,6 +130,12 @@ class AstatApp:
         self._demarrer_boot()
         self._tick_horloge()
         self._tick_telemetry()
+        self._tick_mode_fps()
+        try:
+            hud_modes.on_mode_change(lambda m: self.root.after(0, self._appliquer_mode_hud, m))
+            self._hud_mode = hud_modes.charger_depuis_profil()
+        except Exception:
+            self._hud_mode = "assist"
         self.root.after(2500, self._check_backup_quotidienne)
 
     # ── Mode fond d'écran ─────────────────────────────────────────
@@ -421,31 +434,45 @@ class AstatApp:
     def _fill_telemetry_panel(self, panel):
         pad = ctk.CTkScrollableFrame(panel, fg_color="transparent")
         pad.pack(fill="both", expand=True, padx=10, pady=10)
+        self._left_pad = pad
 
         SectionTitle(pad, "Horloge").pack(fill="x", pady=(0, 2))
         self.clock_label = ctk.CTkLabel(pad, text="--:--:--", font=mono(28, True), text_color=TEXT_PRIMARY)
         self.clock_label.pack(anchor="w")
         self.date_label = ctk.CTkLabel(pad, text="—", font=self.font_hud, text_color=TEXT_SECONDARY)
-        self.date_label.pack(anchor="w", pady=(0, 8))
+        self.date_label.pack(anchor="w", pady=(0, 6))
 
-        SectionTitle(pad, "Système").pack(fill="x", pady=(4, 6))
-        self.cpu_meter = MeterBar(pad, "CPU")
+        SectionTitle(pad, "Mode").pack(fill="x", pady=(2, 4))
+        self._mode_switcher = ModeSwitcher(
+            pad, on_select=self._ui_set_mode, current=getattr(self, "_hud_mode", "assist"),
+        )
+        self._mode_switcher.pack(fill="x", pady=(0, 8))
+
+        self._mode_frames = {}
+        assist = ctk.CTkFrame(pad, fg_color="transparent")
+        perf = ctk.CTkFrame(pad, fg_color="transparent")
+        game = ctk.CTkFrame(pad, fg_color="transparent")
+        self._mode_frames = {"assist": assist, "performance": perf, "gaming": game}
+
+        # —— Assist ——
+        SectionTitle(assist, "Système").pack(fill="x", pady=(4, 6))
+        self.cpu_meter = MeterBar(assist, "CPU")
         self.cpu_meter.pack(fill="x", pady=(0, 8))
-        self.ram_meter = MeterBar(pad, "RAM")
+        self.ram_meter = MeterBar(assist, "RAM")
         self.ram_meter.pack(fill="x", pady=(0, 4))
-        self.cpu_label = ctk.CTkLabel(pad, text="", font=self.font_sub, text_color=TEXT_MUTED)
-        self.ram_label = ctk.CTkLabel(pad, text="", font=self.font_sub, text_color=TEXT_MUTED)
+        self.cpu_label = ctk.CTkLabel(assist, text="", font=self.font_sub, text_color=TEXT_MUTED)
+        self.ram_label = ctk.CTkLabel(assist, text="", font=self.font_sub, text_color=TEXT_MUTED)
 
-        SectionTitle(pad, "Lieu").pack(fill="x", pady=(10, 4))
+        SectionTitle(assist, "Lieu").pack(fill="x", pady=(10, 4))
         ctk.CTkLabel(
-            pad, text=VILLE_DEFAUT, font=self.font_hud_b, text_color=TEXT_PRIMARY,
+            assist, text=VILLE_DEFAUT, font=self.font_hud_b, text_color=TEXT_PRIMARY,
         ).pack(anchor="w")
 
-        SectionTitle(pad, "Modules").pack(fill="x", pady=(10, 4))
+        SectionTitle(assist, "Modules").pack(fill="x", pady=(10, 4))
         self.module_labels = {}
         self.module_status_labels = {}
         for nom, statut in MODULES:
-            row = ctk.CTkFrame(pad, fg_color="transparent")
+            row = ctk.CTkFrame(assist, fg_color="transparent")
             row.pack(fill="x", pady=1)
             if nom == "Gmail":
                 couleur, etat = TEXT_MUTED, "…"
@@ -462,34 +489,99 @@ class AstatApp:
             self.module_labels[nom] = lbl
             self.module_status_labels[nom] = etat_lbl
 
-        SectionTitle(pad, "Mobile").pack(fill="x", pady=(10, 4))
+        SectionTitle(assist, "Mobile").pack(fill="x", pady=(10, 4))
         ip = obtenir_ip_wifi()
         self.remote_url_wifi = f"http://{ip}:{REMOTE_PORT}"
         self.remote_url = self.remote_url_wifi
-        ctk.CTkLabel(pad, text="Wi‑Fi", font=self.font_sub, text_color=TEXT_MUTED).pack(anchor="w")
+        ctk.CTkLabel(assist, text="Wi‑Fi", font=self.font_sub, text_color=TEXT_MUTED).pack(anchor="w")
         self.wifi_label = ctk.CTkLabel(
-            pad, text=self.remote_url_wifi, font=self.font_sub, text_color=TEXT_SECONDARY,
+            assist, text=self.remote_url_wifi, font=self.font_sub, text_color=TEXT_SECONDARY,
             cursor="hand2", wraplength=max(140, self._s(190)), justify="left",
         )
         self.wifi_label.pack(anchor="w")
         self.wifi_label.bind("<Button-1>", lambda e: self._copier_url(self.remote_url_wifi))
-        ctk.CTkLabel(pad, text="Internet", font=self.font_sub, text_color=TEXT_MUTED).pack(
+        ctk.CTkLabel(assist, text="Internet", font=self.font_sub, text_color=TEXT_MUTED).pack(
             anchor="w", pady=(6, 0)
         )
         self.tunnel_label = ctk.CTkLabel(
-            pad, text="Connexion…", font=self.font_sub,
+            assist, text="Connexion…", font=self.font_sub,
             text_color=ACCENT_WARN, wraplength=max(140, self._s(190)), justify="left",
         )
         self.tunnel_label.pack(anchor="w", pady=(0, 6))
-        self._btn(pad, "Copier URL", lambda: self._copier_url(self.remote_url), height=28).pack(
+        self._btn(assist, "Copier URL", lambda: self._copier_url(self.remote_url), height=28).pack(
             fill="x", pady=2
         )
-        self._btn(pad, "Navigateur", self._ouvrir_url_navigateur, height=28).pack(fill="x", pady=2)
-        ctk.CTkLabel(pad, text=f"PIN  {REMOTE_PIN}", font=self.font_hud_b, text_color=TEXT_PRIMARY).pack(
+        self._btn(assist, "Navigateur", self._ouvrir_url_navigateur, height=28).pack(fill="x", pady=2)
+        ctk.CTkLabel(assist, text=f"PIN  {REMOTE_PIN}", font=self.font_hud_b, text_color=TEXT_PRIMARY).pack(
             anchor="w", pady=(8, 0)
         )
-        self.remote_clients_label = ctk.CTkLabel(pad, text="Serveur…", font=self.font_sub, text_color=TEXT_MUTED)
+        self.remote_clients_label = ctk.CTkLabel(assist, text="Serveur…", font=self.font_sub, text_color=TEXT_MUTED)
         self.remote_clients_label.pack(anchor="w", pady=(2, 0))
+
+        # —— Performance / Gaming ——
+        self._perf_view = PerformanceView(perf)
+        self._perf_view.pack(fill="both", expand=True)
+        self._gaming_view = GamingView(
+            game,
+            get_hud_fps=lambda: getattr(self.hud_canvas, "get_fps", lambda: 0)(),
+            on_bench_done=self._apres_micro_bench,
+        )
+        self._gaming_view.pack(fill="both", expand=True)
+
+        self._appliquer_mode_hud(getattr(self, "_hud_mode", "assist"), announce=False)
+
+    def _ui_set_mode(self, mode: str):
+        msg = hud_modes.set_mode(mode)
+        try:
+            self.ajouter_bulle("astat", msg)
+        except Exception:
+            pass
+
+    def _appliquer_mode_hud(self, mode: str, announce: bool = False):
+        mode = hud_modes.normaliser_mode(mode)
+        self._hud_mode = mode
+        if self._mode_switcher:
+            try:
+                self._mode_switcher.set_active(mode)
+            except Exception:
+                pass
+        for key, frame in (self._mode_frames or {}).items():
+            try:
+                if key == mode:
+                    frame.pack(fill="both", expand=True)
+                else:
+                    frame.pack_forget()
+            except Exception:
+                pass
+        # FPS tracking uniquement en gaming
+        if getattr(self, "hud_canvas", None):
+            try:
+                self.hud_canvas.set_fps_tracking(mode == "gaming")
+            except Exception:
+                pass
+        # Intervalle telemetrie
+        if mode == "performance":
+            self._telemetry_interval = 800
+        elif mode == "gaming":
+            self._telemetry_interval = 2500
+        else:
+            self._telemetry_interval = 4000
+        if announce:
+            try:
+                self.top_status.configure(text=f"mode {hud_modes.LABELS.get(mode, mode).lower()}")
+            except Exception:
+                pass
+
+    def _apres_micro_bench(self, result, avg_fps):
+        try:
+            extra = f", HUD ~{avg_fps:.0f} FPS" if avg_fps else ""
+            self.ajouter_bulle(
+                "astat",
+                f"Micro-bench terminé — ~{result.get('ops_m_per_s')} Mops/s{extra}. "
+                "Les presets restent des estimations.",
+            )
+        except Exception:
+            pass
 
     def _fill_actions_panel(self, panel, createur: bool = False):
         pad = ctk.CTkScrollableFrame(panel, fg_color="transparent")
@@ -875,75 +967,7 @@ class AstatApp:
         panel = ctk.CTkFrame(parent, fg_color=BG_PANEL, width=220, corner_radius=0)
         panel.grid(row=0, column=0, sticky="nsew")
         panel.pack_propagate(False)
-        pad = ctk.CTkScrollableFrame(panel, fg_color="transparent")
-        pad.pack(fill="both", expand=True, padx=8, pady=8)
-
-        SectionTitle(pad, "Horloge").pack(fill="x", pady=(4, 2))
-        self.clock_label = ctk.CTkLabel(pad, text="--:--", font=mono(26, True), text_color=TEXT_PRIMARY)
-        self.clock_label.pack(anchor="w")
-        self.date_label = ctk.CTkLabel(pad, text="—", font=self.font_hud, text_color=TEXT_SECONDARY)
-        self.date_label.pack(anchor="w", pady=(0, 8))
-
-        SectionTitle(pad, "Système").pack(fill="x", pady=(4, 4))
-        self.cpu_meter = MeterBar(pad, "CPU")
-        self.cpu_meter.pack(fill="x", pady=(0, 6))
-        self.ram_meter = MeterBar(pad, "RAM")
-        self.ram_meter.pack(fill="x", pady=(0, 4))
-        self.cpu_label = ctk.CTkLabel(pad, text="", font=self.font_sub, text_color=TEXT_MUTED)
-        self.ram_label = ctk.CTkLabel(pad, text="", font=self.font_sub, text_color=TEXT_MUTED)
-
-        SectionTitle(pad, "Lieu").pack(fill="x", pady=(8, 4))
-        ctk.CTkLabel(pad, text=VILLE_DEFAUT, font=self.font_hud, text_color=TEXT_SECONDARY).pack(anchor="w")
-
-        SectionTitle(pad, "Modules").pack(fill="x", pady=(8, 4))
-        self.module_labels = {}
-        self.module_status_labels = {}
-        for nom, statut in MODULES:
-            row = ctk.CTkFrame(pad, fg_color="transparent")
-            row.pack(fill="x", pady=1)
-            if nom == "Gmail":
-                couleur, etat = TEXT_MUTED, "…"
-            elif statut == "online":
-                couleur, etat = SUCCESS, "on"
-            elif statut == "micro" and MICRO_DISPONIBLE:
-                couleur, etat = ACCENT_WARN, "rdy"
-            else:
-                couleur, etat = TEXT_MUTED, "off"
-            etat_lbl = ctk.CTkLabel(row, text=etat, font=self.font_sub, text_color=couleur, width=32)
-            etat_lbl.pack(side="left")
-            lbl = ctk.CTkLabel(row, text=nom, font=self.font_hud, text_color=TEXT_SECONDARY)
-            lbl.pack(side="left")
-            self.module_labels[nom] = lbl
-            self.module_status_labels[nom] = etat_lbl
-
-        SectionTitle(pad, "Mobile").pack(fill="x", pady=(8, 4))
-        ip = obtenir_ip_wifi()
-        self.remote_url_wifi = f"http://{ip}:{REMOTE_PORT}"
-        self.remote_url = self.remote_url_wifi
-        ctk.CTkLabel(pad, text="Wi‑Fi", font=self.font_sub, text_color=TEXT_MUTED).pack(anchor="w")
-        self.wifi_label = ctk.CTkLabel(
-            pad, text=self.remote_url_wifi, font=self.font_sub, text_color=TEXT_SECONDARY,
-            cursor="hand2", wraplength=180, justify="left",
-        )
-        self.wifi_label.pack(anchor="w")
-        self.wifi_label.bind("<Button-1>", lambda e: self._copier_url(self.remote_url_wifi))
-        ctk.CTkLabel(pad, text="Internet", font=self.font_sub, text_color=TEXT_MUTED).pack(
-            anchor="w", pady=(6, 0)
-        )
-        self.tunnel_label = ctk.CTkLabel(
-            pad, text="Connexion…", font=self.font_sub,
-            text_color=ACCENT_WARN, wraplength=180, justify="left",
-        )
-        self.tunnel_label.pack(anchor="w", pady=(2, 4))
-        self._btn(pad, "Copier URL", lambda: self._copier_url(self.remote_url), height=28).pack(
-            fill="x", pady=2
-        )
-        self._btn(pad, "Navigateur", self._ouvrir_url_navigateur, height=28).pack(fill="x", pady=2)
-        ctk.CTkLabel(pad, text=f"PIN  {REMOTE_PIN}", font=self.font_hud_b, text_color=TEXT_PRIMARY).pack(
-            anchor="w", pady=(6, 0)
-        )
-        self.remote_clients_label = ctk.CTkLabel(pad, text="Serveur…", font=self.font_sub, text_color=TEXT_MUTED)
-        self.remote_clients_label.pack(anchor="w", pady=(2, 2))
+        self._fill_telemetry_panel(panel)
 
     def _panel_centre(self, parent):
         centre = ctk.CTkFrame(parent, fg_color=BG_MAIN, corner_radius=0)
@@ -1133,7 +1157,17 @@ class AstatApp:
                 return
         except Exception:
             return
-        if PSUTIL_OK:
+
+        mode = getattr(self, "_hud_mode", "assist")
+
+        if mode == "performance" and self._perf_view is not None:
+            try:
+                from core.perf_monitor import snapshot
+                snap = snapshot()
+                self._perf_view.update_from_snap(snap)
+            except Exception:
+                pass
+        elif PSUTIL_OK:
             cpu = psutil.cpu_percent(interval=None)
             ram = psutil.virtual_memory().percent
             if self.cpu_meter:
@@ -1144,16 +1178,45 @@ class AstatApp:
             self.cpu_meter.set_value(0)
             if self.ram_meter:
                 self.ram_meter.set_value(0)
-        n = self.hub.remote_clients
-        clients_txt = f"{n} tél. lié(s)" if n else "aucun tél. lié"
-        clients_col = SUCCESS if n else TEXT_MUTED
-        if getattr(self, "_last_clients", None) != (clients_txt, clients_col):
-            self._last_clients = (clients_txt, clients_col)
-            self.remote_clients_label.configure(text=clients_txt, text_color=clients_col)
-        self._maj_tunnel_ui()
-        # Ralentir un peu si idle (moins de charge UI)
-        interval = 2800 if self.orb_state != "idle" else getattr(self, "_telemetry_interval", 4000)
+
+        # Clients / tunnel : utiles surtout en assist, leger partout
+        try:
+            n = self.hub.remote_clients
+            clients_txt = f"{n} tél. lié(s)" if n else "aucun tél. lié"
+            clients_col = SUCCESS if n else TEXT_MUTED
+            if getattr(self, "remote_clients_label", None) and getattr(self, "_last_clients", None) != (clients_txt, clients_col):
+                self._last_clients = (clients_txt, clients_col)
+                self.remote_clients_label.configure(text=clients_txt, text_color=clients_col)
+            self._maj_tunnel_ui()
+        except Exception:
+            pass
+
+        if mode == "performance":
+            interval = 700
+        elif mode == "gaming":
+            interval = 2800
+        else:
+            interval = 2800 if self.orb_state != "idle" else getattr(self, "_telemetry_interval", 4000)
         self.root.after(interval, self._tick_telemetry)
+
+    def _tick_mode_fps(self):
+        try:
+            if not self.root.winfo_exists():
+                return
+        except Exception:
+            return
+        mode = getattr(self, "_hud_mode", "assist")
+        if mode == "gaming" and self._gaming_view and getattr(self, "hud_canvas", None):
+            try:
+                fps = self.hud_canvas.get_fps()
+                ms = self.hud_canvas.get_frame_ms()
+                self._gaming_view.update_fps(fps if fps > 0 else None, ms if ms > 0 else None)
+            except Exception:
+                pass
+            delay = 500
+        else:
+            delay = 2000
+        self.root.after(delay, self._tick_mode_fps)
 
     def _maj_tunnel_ui(self):
         sig = (

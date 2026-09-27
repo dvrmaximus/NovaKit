@@ -239,6 +239,62 @@ def executer_commande_locale(message: str) -> str | None:
         from tools.pc_control import obtenir_ip_locale
         return f"IP locale : {obtenir_ip_locale()}"
 
+
+    # --- Modes HUD ---
+    if any(
+        x in t
+        for x in (
+            "mode performance",
+            "passe en mode performance",
+            "passer en mode performance",
+            "mode perf",
+            "active le mode performance",
+            "active mode performance",
+        )
+    ) or (t.strip() in ("performance", "perf") and "mode" in message.lower()):
+        from core.hud_modes import set_mode
+        return set_mode("performance")
+
+    if any(
+        x in t
+        for x in (
+            "mode gaming",
+            "passe en mode gaming",
+            "passer en mode gaming",
+            "mode jeu",
+            "mode game",
+            "active le mode gaming",
+            "active mode gaming",
+        )
+    ) or (t.strip() in ("gaming", "jeu") and "mode" in message.lower()):
+        from core.hud_modes import set_mode
+        return set_mode("gaming")
+
+    if any(
+        x in t
+        for x in (
+            "mode normal",
+            "mode assist",
+            "passe en mode normal",
+            "passer en mode normal",
+            "mode assistant",
+            "reviens en mode normal",
+            "quitte le mode",
+        )
+    ):
+        from core.hud_modes import set_mode
+        return set_mode("assist")
+
+    if "quel mode" in t or "mode actuel" in t or t.strip() == "mode":
+        from core.hud_modes import LABELS, get_mode
+        return f"Mode HUD actuel : {LABELS.get(get_mode(), get_mode())}."
+
+    if any(x in t for x in ("estimation jeu", "estimer mon pc", "que peut tourner", "presets jeux", "config gaming")):
+        from core.gaming_estimate import resume_vocal
+        from core.hud_modes import set_mode
+        set_mode("gaming", announce=False)
+        return resume_vocal()
+
     # —— Admin créateur (message / parler / ping / status uniquement) ——
     admin = _commande_admin_createur(t, message)
     if admin is not None:

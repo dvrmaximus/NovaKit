@@ -27,6 +27,10 @@ class HudCanvas(tk.Canvas):
         self._after_id = None
         self._last_draw_key = None
         self._idle_skip = 0
+        self._fps = 0.0
+        self._frame_ms = 0.0
+        self._fps_times: list[float] = []
+        self._fps_tracking = False
         self.bind("<Destroy>", self._on_destroy)
         self.bind("<Map>", lambda e: self._set_paused(False))
         self.bind("<Unmap>", lambda e: self._set_paused(True))
@@ -56,6 +60,34 @@ class HudCanvas(tk.Canvas):
                     self._animer()
             except Exception:
                 pass
+
+    def set_fps_tracking(self, enabled: bool):
+        self._fps_tracking = bool(enabled)
+        if not enabled:
+            self._fps_times.clear()
+            self._fps = 0.0
+            self._frame_ms = 0.0
+
+    def get_fps(self) -> float:
+        return float(self._fps)
+
+    def get_frame_ms(self) -> float:
+        return float(self._frame_ms)
+
+    def _note_frame(self):
+        if not self._fps_tracking:
+            return
+        import time
+        now = time.perf_counter()
+        self._fps_times.append(now)
+        # fenetre 1 s
+        cutoff = now - 1.0
+        self._fps_times = [t for t in self._fps_times if t >= cutoff]
+        n = len(self._fps_times)
+        if n >= 2:
+            span = self._fps_times[-1] - self._fps_times[0]
+            self._fps = (n - 1) / span if span > 0 else 0.0
+            self._frame_ms = (span / (n - 1)) * 1000.0 if n > 1 else 0.0
 
     def _delay_ms(self) -> int:
         # Idle ~6 fps ; thinking ~12 ; actif ~16
@@ -113,6 +145,7 @@ class HudCanvas(tk.Canvas):
         self._last_draw_key = draw_key
 
         self.delete("all")
+        self._note_frame()
 
         halo_r = r + max(18, self.size // 10) + int(5 * glow_pulse)
         self.create_oval(
