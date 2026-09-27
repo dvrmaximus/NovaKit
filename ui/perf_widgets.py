@@ -7,6 +7,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 import ui.hud_theme as theme
+from ui.hud_widgets import mono
 from ui.mode_shell import CORNER
 
 
@@ -34,7 +35,7 @@ class RingGauge(ctk.CTkFrame):
             highlightthickness=0, bd=0,
         )
         self.canvas.place(x=0, y=0)
-        self._draw()
+        self._redraw_ring()
 
     def set_colors(self, color: str, bg: str | None = None):
         self._color = color
@@ -43,7 +44,7 @@ class RingGauge(ctk.CTkFrame):
                 self.canvas.configure(bg=bg)
             except Exception:
                 pass
-        self._draw()
+        self._redraw_ring()
 
     def set_value(
         self,
@@ -62,9 +63,9 @@ class RingGauge(ctk.CTkFrame):
             self._pct = max(0.0, min(100.0, (float(pct) / vmax) * 100.0))
             self._text = text if text is not None else f"{pct:.0f}"
             self._unit = unit
-        self._draw()
+        self._redraw_ring()
 
-    def _draw(self):
+    def _redraw_ring(self):
         c = self.canvas
         c.delete("all")
         s = self._size
