@@ -20,9 +20,13 @@ class ChatWindow(ctk.CTkToplevel):
     def __init__(self, master=None):
         super().__init__(master)
         self.title(f"Discussion · {NOM_IA_AFFICHE}")
-        self.geometry("520x640")
-        self.minsize(400, 480)
         self.configure(fg_color=BG_MAIN)
+        try:
+            from ui.win_desktop import fit_toplevel
+            fit_toplevel(self, 520, 640)
+        except Exception:
+            self.geometry("520x640")
+            self.minsize(400, 480)
         self.hub = AstatHub.get()
         self.processing = False
 

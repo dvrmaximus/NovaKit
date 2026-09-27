@@ -16,6 +16,13 @@ try:
 except Exception:
     pass
 
+# DPI avant tout Tk / CustomTkinter (évite HUD trop gros / coupé)
+try:
+    from ui.win_desktop import enable_dpi_awareness
+    enable_dpi_awareness()
+except Exception:
+    pass
+
 _data = ROOT / "data"
 _data.mkdir(exist_ok=True)
 if sys.stdout is None:

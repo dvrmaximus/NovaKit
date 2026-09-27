@@ -1,4 +1,4 @@
-"""Capture d'écran haute fréquence (cible ~30 FPS) multi-écrans."""
+"""Capture d'écran haute fréquence (cible ~18–24 FPS) multi-écrans."""
 
 from __future__ import annotations
 
@@ -15,21 +15,23 @@ _clients = 0
 _thread: Optional[threading.Thread] = None
 _running = False
 
-FPS_CIBLE = 30
+FPS_CIBLE = 20
 
 _settings_lock = threading.Lock()
-_largeur = 960
-_qualite = 40
+_largeur = 800
+_qualite = 38
 _moniteur = 1  # index mss (1 = premier écran, 2 = second, …)
 
 
 def regler_qualite(mode: str = "eco"):
-    global _largeur, _qualite
+    global _largeur, _qualite, FPS_CIBLE
     with _settings_lock:
         if mode == "hq":
-            _largeur, _qualite = 1280, 55
+            _largeur, _qualite = 1120, 52
+            FPS_CIBLE = 24
         else:
-            _largeur, _qualite = 960, 40
+            _largeur, _qualite = 800, 36
+            FPS_CIBLE = 16
 
 
 def _params():
@@ -157,7 +159,6 @@ def capturer_jpeg(qualite: Optional[int] = None, largeur_max: Optional[int] = No
 
 def _boucle_capture():
     global _latest_jpeg, _running
-    interval = 1.0 / FPS_CIBLE
     sct = None
     Image = None
     try:
@@ -193,6 +194,7 @@ def _boucle_capture():
         except Exception:
             time.sleep(0.02)
             continue
+        interval = 1.0 / max(8, FPS_CIBLE)
         reste = interval - (time.perf_counter() - t0)
         if reste > 0:
             time.sleep(reste)

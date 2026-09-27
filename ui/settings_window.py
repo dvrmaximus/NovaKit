@@ -46,10 +46,14 @@ class SettingsWindow(ctk.CTkToplevel):
         self.on_saved = on_saved
         self.on_entrainer = on_entrainer
         self.title(f"{KIT_NAME} — Paramètres")
-        self.geometry("780x620")
-        self.minsize(700, 540)
         self.configure(fg_color=theme.BG_MAIN)
         ctk.set_appearance_mode("dark")
+        try:
+            from ui.win_desktop import fit_toplevel
+            fit_toplevel(self, 780, 620)
+        except Exception:
+            self.geometry("780x620")
+            self.minsize(700, 540)
 
         p = lire_profil()
         self.v_nom = ctk.StringVar(value=p["nom_ia"])
@@ -476,13 +480,16 @@ class SettingsWindow(ctk.CTkToplevel):
         try:
             if not self.winfo_exists() or self._orb is None:
                 return
+            if str(self.state()) == "iconic":
+                self._preview_after = self.after(600, self._tick_preview)
+                return
         except Exception:
             return
         c = self._orb
         c.delete("all")
         cx, cy = 55, 55
-        self._preview_phase += 0.12
-        breath = 1.0 + 0.06 * math.sin(self._preview_phase)
+        self._preview_phase += 0.1
+        breath = 1.0 + 0.05 * math.sin(self._preview_phase)
         r = int(28 * breath)
         glow = theme.ACCENT_GLOW
         accent = theme.ACCENT
@@ -496,7 +503,7 @@ class SettingsWindow(ctk.CTkToplevel):
             cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3,
             start=a0, extent=80, style="arc", outline=theme.ACCENT_HOT, width=2,
         )
-        self._preview_after = self.after(80, self._tick_preview)
+        self._preview_after = self.after(140, self._tick_preview)
 
     def _fermer(self):
         if self._preview_after is not None:

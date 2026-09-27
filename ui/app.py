@@ -38,9 +38,10 @@ from ui.hud_theme import (
 )
 from ui.hud_widgets import MeterBar, SectionTitle, StatusDot, mono
 from ui.win_desktop import (
-    HotkeyListener, bring_to_front, ensure_interactive, hwnd_toplevel,
-    list_monitors, resolve_monitor, screen_geometry, screen_size,
-    send_to_desktop_layer, set_click_through, set_window_alpha,
+    HotkeyListener, apply_tk_dpi_scaling, bring_to_front, compute_ui_scale,
+    ensure_interactive, hwnd_toplevel, list_monitors, resolve_monitor,
+    screen_geometry, send_to_desktop_layer, set_click_through, set_window_alpha,
+    system_dpi_scale,
 )
 from voice import AstatVoice
 
@@ -70,19 +71,13 @@ class AstatApp:
         self.hub.init_brain(AstatBrain())
         self.hub.on_message(self._on_hub_message)
         self.voice = AstatVoice()
-        self._telemetry_interval = 3500
+        self._telemetry_interval = 4000
         self._last_tunnel_sig = None
+        self._ui_scale = 1.0
+        self._dpi_scale = 1.0
 
-        self.font_hud = mono(11)
-        self.font_hud_b = mono(11, True)
-        self.font_title = mono(32, True)
-        self.font_brand = mono(42, True)
-        self.font_sub = mono(9)
-        try:
-            self.font_chat = ctk.CTkFont(family=FONT_UI, size=13)
-        except Exception:
-            self.font_chat = ctk.CTkFont(family="Segoe UI", size=13)
-        self.font_clock = mono(36, True)
+        # Polices (réajustées après calcul d'échelle en mode desktop)
+        self._init_fonts(1.0)
 
         self.orb_state = "idle"
         self.listening_active = False
@@ -104,8 +99,15 @@ class AstatApp:
             self._setup_desktop_window()
             self._construire_desktop_hud()
         else:
-            self.root.geometry("1280x800")
-            self.root.minsize(1000, 680)
+            try:
+                sw = int(self.root.winfo_screenwidth())
+                sh = int(self.root.winfo_screenheight())
+                gw, gh = min(1280, sw - 40), min(800, sh - 60)
+                self.root.geometry(f"{gw}x{gh}")
+                self.root.minsize(min(900, gw), min(600, gh))
+            except Exception:
+                self.root.geometry("1280x800")
+                self.root.minsize(1000, 680)
             self.root.configure(fg_color=BG_MAIN)
             self.root.bind("<F11>", self._toggle_fullscreen)
             self.root.bind("<Escape>", lambda e: self.root.attributes("-fullscreen", False))
@@ -125,9 +127,36 @@ class AstatApp:
 
     # ── Mode fond d'écran ─────────────────────────────────────────
 
+    def _s(self, value: float | int) -> int:
+        """Scale une dimension selon l'échelle UI (DPI / petit écran)."""
+        return max(1, int(round(float(value) * self._ui_scale)))
+
+    def _init_fonts(self, scale: float = 1.0):
+        s = max(0.7, min(1.15, float(scale)))
+
+        def sz(n: int) -> int:
+            return max(8, int(round(n * s)))
+
+        self.font_hud = mono(sz(11))
+        self.font_hud_b = mono(sz(11), True)
+        self.font_title = mono(sz(32), True)
+        self.font_brand = mono(sz(42), True)
+        self.font_sub = mono(sz(9))
+        try:
+            self.font_chat = ctk.CTkFont(family=FONT_UI, size=sz(13))
+        except Exception:
+            self.font_chat = ctk.CTkFont(family="Segoe UI", size=sz(13))
+        self.font_clock = mono(sz(36), True)
+
     def _setup_desktop_window(self):
         self._monitor = resolve_monitor(DESKTOP_MONITOR)
-        self.root.geometry(screen_geometry(self._monitor))
+        mon = self._monitor
+        sw, sh = int(mon["width"]), int(mon["height"])
+        self._dpi_scale = system_dpi_scale()
+        self._ui_scale = compute_ui_scale(sw, sh, self._dpi_scale)
+        apply_tk_dpi_scaling(self.root, self._ui_scale)
+        self._init_fonts(self._ui_scale)
+        self.root.geometry(screen_geometry(mon))
         self.root.overrideredirect(True)
         self.root.configure(fg_color=BG_DEEP)
         try:
@@ -224,27 +253,51 @@ class AstatApp:
     def _construire_desktop_hud(self):
         mon = self._monitor or resolve_monitor(DESKTOP_MONITOR)
         self._monitor = mon
-        sw, sh = mon["width"], mon["height"]
-        panel_h = max(360, sh - 140)
-        left_w, right_w = 236, 280
-        center_w = min(520, max(380, sw - left_w - right_w - 72))
+        sw, sh = int(mon["width"]), int(mon["height"])
+        if not getattr(self, "_ui_scale", None):
+            self._dpi_scale = system_dpi_scale()
+            self._ui_scale = compute_ui_scale(sw, sh, self._dpi_scale)
+            apply_tk_dpi_scaling(self.root, self._ui_scale)
+            self._init_fonts(self._ui_scale)
+
+        # Marges & panneaux proportionnels — toujours dans l'écran
+        margin = self._s(16)
+        top_h = self._s(42)
+        bar_h = self._s(52)
+        gap_y = self._s(10)
+        top_y = self._s(10)
+        left_w = self._s(220 if sw < 1500 else 236)
+        right_w = self._s(250 if sw < 1500 else 280)
+        usable_h = sh - top_y - top_h - gap_y - bar_h - self._s(18)
+        panel_h = max(self._s(280), usable_h)
+        gap_x = self._s(16)
+        center_w = sw - left_w - right_w - 2 * margin - 2 * gap_x
+        center_w = max(self._s(280), min(self._s(520), center_w))
+        # Recentrer si trop large pour l'écran
+        total = left_w + right_w + center_w + 2 * margin + 2 * gap_x
+        if total > sw:
+            overflow = total - sw
+            center_w = max(self._s(240), center_w - overflow)
+
         createur = self._est_createur()
+        panel_y = top_y + top_h + gap_y
+        bar_y = sh - bar_h - self._s(12)
 
         stage = ctk.CTkFrame(self.root, fg_color=BG_DEEP, corner_radius=0)
         stage.pack(fill="both", expand=True)
         self._stage = stage
 
-        # ── Top bar (fine, sobre) ──
-        top = self._glass(stage, width=sw - 40, height=44, corner_radius=10)
-        top.place(x=20, y=12)
+        # ── Top bar ──
+        top = self._glass(stage, width=sw - 2 * margin, height=top_h, corner_radius=10)
+        top.place(x=margin, y=top_y)
         top.pack_propagate(False)
 
         brand_row = ctk.CTkFrame(top, fg_color="transparent")
-        brand_row.pack(side="left", padx=14, pady=6)
+        brand_row.pack(side="left", padx=self._s(12), pady=self._s(5))
         self.status_dot = StatusDot(brand_row)
         self.status_dot.pack(side="left", padx=(0, 8))
         ctk.CTkLabel(
-            brand_row, text=NOM_IA_AFFICHE, font=mono(15, True), text_color=TEXT_PRIMARY,
+            brand_row, text=NOM_IA_AFFICHE, font=mono(self._s(14), True), text_color=TEXT_PRIMARY,
         ).pack(side="left")
         n_mon = len(list_monitors())
         mon_tag = "sec" if not mon.get("primary") else "pri"
@@ -255,40 +308,41 @@ class AstatApp:
         ).pack(side="left", pady=2)
 
         self.top_status = ctk.CTkLabel(top, text="démarrage…", font=self.font_hud, text_color=TEXT_MUTED)
-        self.top_status.pack(side="left", padx=10)
+        self.top_status.pack(side="left", padx=8)
         modele = getattr(self.hub.brain, "modele", MODELE_GEMINI)
         ctk.CTkLabel(top, text=modele, font=self.font_sub, text_color=TEXT_MUTED).pack(side="left", padx=4)
 
-        self._btn(top, "✕", self._quitter, danger=True, width=34, height=28).pack(
-            side="right", padx=(4, 12), pady=8
+        bh = self._s(26)
+        self._btn(top, "✕", self._quitter, danger=True, width=self._s(32), height=bh).pack(
+            side="right", padx=(4, self._s(10)), pady=self._s(6)
         )
-        self._btn(top, "Paramètres", self._ouvrir_parametres, primary=True, width=100, height=28).pack(
-            side="right", padx=4, pady=8
+        self._btn(top, "Paramètres", self._ouvrir_parametres, primary=True, width=self._s(96), height=bh).pack(
+            side="right", padx=3, pady=self._s(6)
         )
         self.desk_mode_btn = self._btn(
-            top, "Bureau libre", self._toggle_click_through, width=100, height=28,
+            top, "Bureau libre", self._toggle_click_through, width=self._s(96), height=bh,
         )
-        self.desk_mode_btn.pack(side="right", padx=4, pady=8)
-        self._btn(top, "Sous apps", self._pin_under_apps, width=80, height=28).pack(
-            side="right", padx=4, pady=8
+        self.desk_mode_btn.pack(side="right", padx=3, pady=self._s(6))
+        self._btn(top, "Sous apps", self._pin_under_apps, width=self._s(76), height=bh).pack(
+            side="right", padx=3, pady=self._s(6)
         )
         if n_mon > 1:
-            self._btn(top, "Écran", self._cycle_monitor, width=60, height=28).pack(
-                side="right", padx=4, pady=8
+            self._btn(top, "Écran", self._cycle_monitor, width=self._s(56), height=bh).pack(
+                side="right", padx=3, pady=self._s(6)
             )
         ctk.CTkLabel(top, text="F8", font=self.font_sub, text_color=TEXT_MUTED).pack(
-            side="right", padx=6
+            side="right", padx=4
         )
 
         # ── Left telemetry ──
         left = self._glass(stage, width=left_w, height=panel_h, corner_radius=10)
-        left.place(x=20, y=66)
+        left.place(x=margin, y=panel_y)
         left.pack_propagate(False)
         self._fill_telemetry_panel(left)
 
         # ── Right actions (+ admin créateur) ──
         right = self._glass(stage, width=right_w, height=panel_h, corner_radius=10)
-        right.place(x=sw - right_w - 20, y=66)
+        right.place(x=sw - right_w - margin, y=panel_y)
         right.pack_propagate(False)
         self._fill_actions_panel(right, createur=createur)
 
@@ -298,18 +352,21 @@ class AstatApp:
             stage, fg_color=BG_DEEP, corner_radius=0,
             width=center_w, height=panel_h,
         )
-        center.place(x=cx - center_w // 2, y=66)
+        center.place(x=cx - center_w // 2, y=panel_y)
         center.pack_propagate(False)
 
+        brand_sz = self._s(24 if sh < 900 else 28)
         ctk.CTkLabel(
-            center, text=NOM_IA_AFFICHE, font=mono(28, True), text_color=TEXT_PRIMARY,
-        ).pack(pady=(10, 0))
+            center, text=NOM_IA_AFFICHE, font=mono(brand_sz, True), text_color=TEXT_PRIMARY,
+        ).pack(pady=(self._s(8), 0))
         self.status_label = ctk.CTkLabel(
             center, text="démarrage…", font=self.font_hud, text_color=TEXT_MUTED,
         )
-        self.status_label.pack(pady=(2, 6))
+        self.status_label.pack(pady=(2, self._s(4)))
 
-        self.hud_canvas = HudCanvas(center, size=220, bg=BG_DEEP)
+        orb = self._s(180 if sh < 850 else 220)
+        orb = min(orb, max(120, center_w - self._s(40)))
+        self.hud_canvas = HudCanvas(center, size=orb, bg=BG_DEEP)
         self.hud_canvas.pack(pady=(0, 2))
         self.hud_canvas.bind("<Double-Button-1>", lambda e: self.start_listening())
         self.hud_canvas.bind("<Button-1>", lambda e: self.entry.focus())
@@ -317,35 +374,36 @@ class AstatApp:
         ctk.CTkLabel(
             center, text="double-clic · parler    clic · commande",
             font=self.font_sub, text_color=TEXT_MUTED,
-        ).pack(pady=(2, 6))
+        ).pack(pady=(2, self._s(4)))
 
         log_frame = self._glass(center, corner_radius=10)
         log_frame.pack(fill="both", expand=True, padx=2, pady=(0, 2))
         hdr = ctk.CTkFrame(log_frame, fg_color="transparent")
-        hdr.pack(fill="x", padx=12, pady=(8, 2))
+        hdr.pack(fill="x", padx=self._s(10), pady=(self._s(6), 2))
         ctk.CTkLabel(hdr, text="Journal", font=self.font_hud_b, text_color=TEXT_MUTED).pack(side="left")
         self.thinking_label = ctk.CTkLabel(hdr, text="", font=self.font_hud, text_color=TEXT_SECONDARY)
         self.thinking_label.pack(side="right")
-        ctk.CTkFrame(log_frame, fg_color=LINE, height=1).pack(fill="x", padx=10)
+        ctk.CTkFrame(log_frame, fg_color=LINE, height=1).pack(fill="x", padx=8)
         self.zone_chat = ctk.CTkScrollableFrame(log_frame, fg_color="transparent")
-        self.zone_chat.pack(fill="both", expand=True, padx=6, pady=(4, 8))
+        self.zone_chat.pack(fill="both", expand=True, padx=4, pady=(2, self._s(6)))
 
         # ── Command bar ──
-        barre = self._glass(stage, width=sw - 40, height=56, corner_radius=10)
-        barre.place(x=20, y=sh - 70)
+        barre = self._glass(stage, width=sw - 2 * margin, height=bar_h, corner_radius=10)
+        barre.place(x=margin, y=bar_y)
         barre.pack_propagate(False)
         inner = ctk.CTkFrame(barre, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=14, pady=10)
+        inner.pack(fill="both", expand=True, padx=self._s(12), pady=self._s(8))
+        entry_h = self._s(34)
         self.entry = ctk.CTkEntry(
             inner,
             placeholder_text=f"Parler à {NOM_IA}…  (Ctrl+K)",
             fg_color=BG_INPUT, border_color=LINE, border_width=1,
-            text_color=TEXT_PRIMARY, font=self.font_chat, height=36, corner_radius=8,
+            text_color=TEXT_PRIMARY, font=self.font_chat, height=entry_h, corner_radius=8,
         )
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.entry.bind("<Return>", self.send_text_message)
         self.mic_button = self._btn(
-            inner, "Parler", self.start_listening, primary=True, width=84, height=36,
+            inner, "Parler", self.start_listening, primary=True, width=self._s(80), height=entry_h,
         )
         self.mic_button.pack(side="left")
 
@@ -353,7 +411,7 @@ class AstatApp:
         self._boot_overlay = ctk.CTkFrame(stage, fg_color=BG_DEEP, corner_radius=0)
         self._boot_overlay.place(x=0, y=0, relwidth=1, relheight=1)
         ctk.CTkLabel(
-            self._boot_overlay, text=NOM_IA_AFFICHE, font=mono(36, True), text_color=TEXT_PRIMARY,
+            self._boot_overlay, text=NOM_IA_AFFICHE, font=mono(self._s(32), True), text_color=TEXT_PRIMARY,
         ).place(relx=0.5, rely=0.44, anchor="center")
         self._boot_sub = ctk.CTkLabel(
             self._boot_overlay, text="démarrage…", font=self.font_hud, text_color=TEXT_MUTED,
@@ -411,7 +469,7 @@ class AstatApp:
         ctk.CTkLabel(pad, text="Wi‑Fi", font=self.font_sub, text_color=TEXT_MUTED).pack(anchor="w")
         self.wifi_label = ctk.CTkLabel(
             pad, text=self.remote_url_wifi, font=self.font_sub, text_color=TEXT_SECONDARY,
-            cursor="hand2", wraplength=200, justify="left",
+            cursor="hand2", wraplength=max(140, self._s(190)), justify="left",
         )
         self.wifi_label.pack(anchor="w")
         self.wifi_label.bind("<Button-1>", lambda e: self._copier_url(self.remote_url_wifi))
@@ -420,7 +478,7 @@ class AstatApp:
         )
         self.tunnel_label = ctk.CTkLabel(
             pad, text="Connexion…", font=self.font_sub,
-            text_color=ACCENT_WARN, wraplength=200, justify="left",
+            text_color=ACCENT_WARN, wraplength=max(140, self._s(190)), justify="left",
         )
         self.tunnel_label.pack(anchor="w", pady=(0, 6))
         self._btn(pad, "Copier URL", lambda: self._copier_url(self.remote_url), height=28).pack(
@@ -1094,7 +1152,7 @@ class AstatApp:
             self.remote_clients_label.configure(text=clients_txt, text_color=clients_col)
         self._maj_tunnel_ui()
         # Ralentir un peu si idle (moins de charge UI)
-        interval = 2500 if self.orb_state != "idle" else getattr(self, "_telemetry_interval", 3500)
+        interval = 2800 if self.orb_state != "idle" else getattr(self, "_telemetry_interval", 4000)
         self.root.after(interval, self._tick_telemetry)
 
     def _maj_tunnel_ui(self):
@@ -1514,6 +1572,16 @@ class AstatApp:
 
 
 def lancer():
+    try:
+        from ui.win_desktop import apply_tk_dpi_scaling, enable_dpi_awareness
+        enable_dpi_awareness()
+    except Exception:
+        apply_tk_dpi_scaling = None  # type: ignore
     root = ctk.CTk()
+    if apply_tk_dpi_scaling:
+        try:
+            apply_tk_dpi_scaling(root, 1.0)
+        except Exception:
+            pass
     AstatApp(root, desktop_mode=DESKTOP_MODE)
     root.mainloop()

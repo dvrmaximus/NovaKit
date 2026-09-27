@@ -18,16 +18,17 @@
     html,body{height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
     body{display:flex;flex-direction:column;min-height:100dvh}
 
-    /* PIN */
+    /* PIN — sans blur coûteux */
     #pinScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px 24px;gap:18px;
       background:radial-gradient(ellipse at 50% 20%,#0a2a33 0%,var(--bg) 55%)}
     .logo{font-family:Consolas,ui-monospace,monospace;font-size:1.8rem;letter-spacing:.42em;color:var(--accent);font-weight:700}
     .logo-sub{font-size:.75rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
     #pinInput{width:200px;padding:16px;border-radius:12px;border:1px solid var(--dim);background:var(--panel);
       color:var(--text);font-size:1.6rem;text-align:center;letter-spacing:.45em;outline:none}
-    #pinInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.15)}
+    #pinInput:focus{border-color:var(--accent)}
     .btn-primary{background:linear-gradient(135deg,var(--dim),#0e8fa3);color:#041016;border:none;padding:14px 36px;
-      border-radius:12px;font-weight:700;font-size:.95rem;letter-spacing:.08em;cursor:pointer}
+      border-radius:12px;font-weight:700;font-size:.95rem;letter-spacing:.08em;cursor:pointer;
+      transition:transform .12s ease}
     .btn-primary:active{transform:scale(.98)}
     #pinError{color:var(--danger);font-size:.8rem;display:none}
 
@@ -35,24 +36,26 @@
     #app{display:none;flex-direction:column;height:100dvh}
     #app.active{display:flex}
     header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
-      background:rgba(7,11,16,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+      background:#070b10;border-bottom:1px solid var(--line)}
     header .brand{font-family:Consolas,monospace;font-size:.8rem;color:var(--accent);letter-spacing:.22em}
     #connStatus{font-family:Consolas,monospace;font-size:.65rem;color:var(--ok)}
 
-    .tabs{display:flex;gap:6px;padding:8px 12px;background:var(--bg);overflow-x:auto}
+    .tabs{display:flex;gap:6px;padding:8px 12px;background:var(--bg);overflow-x:auto;-webkit-overflow-scrolling:touch}
     .tab{flex:1;min-width:68px;padding:10px 6px;text-align:center;font-family:Consolas,monospace;font-size:.62rem;
       letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
-    .tab.active{color:var(--accent);border-color:var(--dim);background:linear-gradient(180deg,#0d1c24,var(--panel))}
+    .tab.active{color:var(--accent);border-color:var(--dim);background:var(--panel2)}
 
-    .panel{display:none;flex:1;overflow:hidden;flex-direction:column}
+    .panel{display:none;flex:1;overflow:hidden;flex-direction:column;contain:layout paint}
     .panel.active{display:flex}
 
-    /* Chat */
-    #chat{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:88%;padding:12px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word;animation:fadeIn .25s ease}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    /* Chat — animation légère, désactivable */
+    #chat{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+    .msg{max-width:88%;padding:12px 14px;border-radius:14px;font-size:.9rem;line-height:1.45;word-break:break-word;
+      will-change:opacity,transform}
+    .msg.anim{animation:fadeIn .2s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:none}}
     .msg.user{align-self:flex-end;background:var(--panel2);border:1px solid var(--line)}
-    .msg.astat{align-self:flex-start;background:#071820;border:1px solid rgba(0,212,255,.25)}
+    .msg.astat{align-self:flex-start;background:#071820;border:1px solid rgba(0,212,255,.22)}
     .msg .tag{font-family:Consolas,monospace;font-size:.6rem;color:var(--accent2);margin-bottom:5px;opacity:.85}
     .msg.user .tag{color:var(--muted)}
 
@@ -73,13 +76,11 @@
     .screen-toolbar button.on{background:var(--dim);color:#041016;font-weight:700;border-color:var(--accent)}
     .screen-toolbar .badge{font-family:Consolas,monospace;font-size:.62rem;color:var(--ok);min-width:52px;text-align:center}
     .screen-stage{flex:1;margin:0 10px;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;min-height:0;
-      display:flex;align-items:center;justify-content:center}
-    #liveScreen{width:100%;height:100%;object-fit:contain;display:block;touch-action:manipulation;background:#000}
+      display:flex;align-items:center;justify-content:center;contain:strict}
+    #liveScreen{width:100%;height:100%;object-fit:contain;display:block;touch-action:manipulation;background:#000;
+      transform:translateZ(0);will-change:contents}
     .screen-hint{text-align:center;font-size:.65rem;color:var(--muted);padding:8px 12px calc(8px + var(--safe-b))}
-    .fps{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:var(--ok);font-family:Consolas,monospace;
-      font-size:.6rem;padding:4px 8px;border-radius:6px;pointer-events:none}
 
-    /* Plein écran immersif (mobile-friendly, marche aussi iOS) */
     #app.screen-fs header,
     #app.screen-fs .tabs,
     #app.screen-fs .screen-hint{display:none!important}
@@ -89,11 +90,11 @@
     }
     #app.screen-fs .screen-toolbar{
       position:absolute;top:0;left:0;right:0;z-index:90;
-      background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.25));
+      background:rgba(0,0,0,.72);
       padding:calc(8px + env(safe-area-inset-top,0px)) 10px 12px;
-      transition:opacity .25s,transform .25s;
+      transition:opacity .2s,transform .2s;
     }
-    #app.screen-fs .screen-toolbar.hidden{opacity:0;pointer-events:none;transform:translateY(-8px)}
+    #app.screen-fs .screen-toolbar.hidden{opacity:0;pointer-events:none;transform:translate3d(0,-8px,0)}
     #app.screen-fs .screen-stage{
       margin:0;border:none;border-radius:0;flex:1;height:100%;
     }
@@ -104,18 +105,24 @@
     }
     #app.screen-fs #exitFsBtn{display:block}
 
-    /* Lists */
-    .scroll{flex:1;overflow-y:auto;padding:12px}
+    .scroll{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
     .card{display:block;width:100%;padding:14px 16px;margin-bottom:8px;background:var(--panel2);border:1px solid var(--line);
       color:var(--text);border-radius:12px;font-size:.9rem;cursor:pointer;text-align:left}
     .card:active{border-color:var(--dim);background:#121c28}
     .card.danger{border-color:rgba(255,90,106,.4);color:#ff9aa4}
     .section{font-family:Consolas,monospace;font-size:.65rem;color:var(--dim);letter-spacing:.12em;margin:14px 4px 8px}
 
-    .toast{position:fixed;left:50%;bottom:calc(80px + var(--safe-b));transform:translateX(-50%);background:rgba(10,20,28,.95);
+    .toast{position:fixed;left:50%;bottom:calc(80px + var(--safe-b));transform:translate3d(-50%,0,0);background:rgba(10,20,28,.95);
       border:1px solid var(--dim);color:var(--text);padding:10px 16px;border-radius:10px;font-size:.8rem;opacity:0;pointer-events:none;
-      transition:opacity .25s;z-index:50}
+      transition:opacity .2s;z-index:50}
     .toast.show{opacity:1}
+
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation:none!important;transition:none!important}
+      .msg.anim{animation:none}
+    }
+    .low-fps .msg.anim{animation:none}
+    .low-fps header,.low-fps .tab.active{background:var(--panel)!important}
   </style>
 </head>
 <body>
@@ -166,7 +173,7 @@
       <button onclick="setQuality('hq')">HQ</button>
     </div>
     <div class="screen-stage" id="screenStage">
-      <img id="liveScreen" alt="Écran PC" onclick="onScreenTap(event)">
+      <img id="liveScreen" alt="Écran PC" onclick="onScreenTap(event)" decoding="async">
     </div>
     <p class="screen-hint">Touche = clic · PLEIN ÉCRAN · SON = audio du PC</p>
   </div>
@@ -215,6 +222,12 @@
 const AI_NAME = "{{NOM_IA}}";
 const AI_DISPLAY = "{{NOM_IA_AFFICHE}}";
 
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const lowEnd = reduceMotion
+  || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+  || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+if (lowEnd) document.documentElement.classList.add('low-fps');
+
 const state = {
   pin: localStorage.getItem('novakit_pin') || '',
   ws: null,
@@ -225,6 +238,7 @@ const state = {
   fullscreen: false,
   toolbarHideTimer: null,
   objectUrl: null,
+  pendingUrl: null,
   frames: 0,
   fpsTimer: null,
   quality: 'eco',
@@ -233,12 +247,23 @@ const state = {
   audioCtx: null,
   audioNextTime: 0,
   audioGain: null,
+  pageHidden: document.hidden,
+  paintScheduled: false,
 };
 
 if (state.pin) {
   document.getElementById('pinInput').value = state.pin;
   connect();
 }
+
+document.addEventListener('visibilitychange', () => {
+  state.pageHidden = document.hidden;
+  if (document.hidden) {
+    if (state.live) pauseLiveStream();
+  } else if (state.live && document.getElementById('panel-screen').classList.contains('active')) {
+    resumeLiveStream();
+  }
+});
 
 function toast(msg) {
   const el = document.getElementById('toast');
@@ -288,10 +313,12 @@ function headers() {
 
 function addMsg(role, text) {
   const div = document.createElement('div');
-  div.className = 'msg ' + (role === 'astat' ? 'astat' : 'user');
+  div.className = 'msg ' + (role === 'astat' ? 'astat' : 'user') + (reduceMotion || lowEnd ? '' : ' anim');
   div.innerHTML = `<div class="tag">${role === 'astat' ? AI_DISPLAY : 'VOUS'}</div>${escapeHtml(text)}`;
   const chat = document.getElementById('chat');
   chat.appendChild(div);
+  // Limite RAM : garde 80 derniers messages
+  while (chat.children.length > 80) chat.removeChild(chat.firstChild);
   chat.scrollTop = chat.scrollHeight;
 }
 
@@ -378,12 +405,39 @@ async function cycleScreen() {
   }
 }
 
+function targetFps() {
+  if (state.quality === 'hq') return lowEnd ? 18 : 24;
+  return lowEnd ? 12 : 16;
+}
+
 function liveUrl() {
-  return `/api/screen/live?pin=${encodeURIComponent(state.pin)}&q=${state.quality === 'hq' ? 55 : 40}&t=${Date.now()}`;
+  return `/api/screen/live?pin=${encodeURIComponent(state.pin)}&q=${state.quality === 'hq' ? 48 : 36}&t=${Date.now()}`;
 }
 
 function refreshScreen() {
   document.getElementById('liveScreen').src = liveUrl();
+}
+
+function paintFrame() {
+  state.paintScheduled = false;
+  if (!state.pendingUrl || state.pageHidden) return;
+  const img = document.getElementById('liveScreen');
+  const prev = state.objectUrl;
+  state.objectUrl = state.pendingUrl;
+  state.pendingUrl = null;
+  img.src = state.objectUrl;
+  if (prev && prev !== state.objectUrl) URL.revokeObjectURL(prev);
+  state.frames += 1;
+}
+
+function queueFrame(blob) {
+  if (state.pageHidden) return;
+  if (state.pendingUrl) URL.revokeObjectURL(state.pendingUrl);
+  state.pendingUrl = URL.createObjectURL(blob);
+  if (!state.paintScheduled) {
+    state.paintScheduled = true;
+    requestAnimationFrame(paintFrame);
+  }
 }
 
 function startLive() {
@@ -395,7 +449,7 @@ function startLive() {
   btn.textContent = '● LIVE';
 
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const fps = 30;
+  const fps = targetFps();
   const q = state.quality === 'hq' ? 'hq' : 'eco';
   state.screenWs = new WebSocket(
     `${proto}://${location.host}/ws/screen?pin=${encodeURIComponent(state.pin)}&fps=${fps}&q=${q}`
@@ -403,24 +457,21 @@ function startLive() {
   state.screenWs.binaryType = 'arraybuffer';
 
   state.screenWs.onmessage = (event) => {
+    if (state.pageHidden) return;
     const blob = new Blob([event.data], {type: 'image/jpeg'});
-    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
-    state.objectUrl = URL.createObjectURL(blob);
-    document.getElementById('liveScreen').src = state.objectUrl;
-    state.frames += 1;
+    queueFrame(blob);
   };
 
   state.screenWs.onerror = () => {
-    // Fallback HTTP si le WS échoue
     if (state.live) {
       document.getElementById('fpsLabel').textContent = 'HTTP';
-      state.timer = setInterval(refreshScreen, 120);
+      state.timer = setInterval(refreshScreen, state.quality === 'hq' ? 90 : 140);
     }
   };
 
   state.screenWs.onclose = () => {
-    if (state.live) {
-      setTimeout(() => { if (state.live) startLive(); }, 800);
+    if (state.live && !state.pageHidden) {
+      setTimeout(() => { if (state.live && !state.pageHidden) startLive(); }, 900);
     }
   };
 
@@ -429,6 +480,19 @@ function startLive() {
     document.getElementById('fpsLabel').textContent = `${state.frames} FPS`;
     state.frames = 0;
   }, 1000);
+}
+
+function pauseLiveStream() {
+  if (state.screenWs) {
+    try { state.screenWs.close(); } catch {}
+    state.screenWs = null;
+  }
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  document.getElementById('fpsLabel').textContent = 'PAUSE';
+}
+
+function resumeLiveStream() {
+  if (state.live) startLive();
 }
 
 function stopLive() {
@@ -442,13 +506,13 @@ function stopLive() {
   }
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
   if (state.fpsTimer) { clearInterval(state.fpsTimer); state.fpsTimer = null; }
+  if (state.pendingUrl) { URL.revokeObjectURL(state.pendingUrl); state.pendingUrl = null; }
   if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = null; }
   document.getElementById('fpsLabel').textContent = '0 FPS';
 }
 
 function toggleLive() { state.live ? stopLive() : startLive(); }
 
-/* ── Plein écran ── */
 function toggleFullscreen(force) {
   const want = (typeof force === 'boolean') ? force : !state.fullscreen;
   state.fullscreen = want;
@@ -463,7 +527,6 @@ function toggleFullscreen(force) {
   if (want) {
     showTab('screen');
     scheduleHideToolbar();
-    // API native si dispo (Android Chrome)
     const stage = document.getElementById('screenStage');
     try {
       const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
@@ -494,14 +557,13 @@ function onScreenTap(event) {
     const tb = document.getElementById('screenToolbar');
     if (tb && tb.classList.contains('hidden')) {
       scheduleHideToolbar();
-      return; // premier tap = montrer barre, pas clic PC
+      return;
     }
     scheduleHideToolbar();
   }
   clickScreen(event);
 }
 
-/* ── Audio PC → téléphone ── */
 async function toggleAudio() {
   if (state.audio) stopAudio();
   else await startAudio();
@@ -544,7 +606,7 @@ async function startAudio() {
       } catch {}
       return;
     }
-    playPcmChunk(event.data);
+    if (!state.pageHidden) playPcmChunk(event.data);
   };
   state.audioWs.onerror = () => toast('Flux audio interrompu');
   state.audioWs.onclose = () => {
@@ -619,14 +681,13 @@ function showTab(name) {
   } else {
     if (state.fullscreen) toggleFullscreen(false);
     stopLive();
-    // garde l'audio si l'utilisateur veut écouter en naviguant ? on coupe pour batterie
     stopAudio();
   }
 }
 
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && state.fullscreen) {
-    // sorti via geste système → sync UI
+    // sorti via geste système
   }
 });
 </script>

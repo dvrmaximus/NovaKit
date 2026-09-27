@@ -109,11 +109,11 @@ class StatusDot(ctk.CTkLabel):
                 return
             top = self.winfo_toplevel()
             if str(top.state()) == "iconic":
-                self._after_id = self.after(500, self._tick)
+                self._after_id = self.after(900, self._tick)
                 return
         except Exception:
             return
         self._phase = (self._phase + 1) % 16
         on = self._phase < 8
         self.configure(text_color=theme.ACCENT_SOFT if on else theme.TEXT_MUTED)
-        self._after_id = self.after(220, self._tick)
+        self._after_id = self.after(320, self._tick)

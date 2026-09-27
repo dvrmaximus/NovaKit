@@ -1,4 +1,4 @@
-"""Helpers Win32 — multi-écran, overlay, raccourcis globaux."""
+"""Helpers Win32 — multi-écran, overlay, DPI, raccourcis globaux."""
 
 from __future__ import annotations
 
@@ -9,6 +9,99 @@ user32 = ctypes.windll.user32
 
 TRANSPARENT_KEY = "#010203"
 TRANSPARENT_KEY_RGB = (0x01, 0x02, 0x03)
+
+# Baseline layout (panels + marges) — au‑delà on scale down
+_DESIGN_W = 1480
+_DESIGN_H = 820
+
+
+def enable_dpi_awareness() -> None:
+    """À appeler AVANT Tk : pixels physiques cohérents Win32 ↔ Tk."""
+    try:
+        # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+        user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+        return
+    except Exception:
+        pass
+    try:
+        # PROCESS_PER_MONITOR_DPI_AWARE = 2
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return
+    except Exception:
+        pass
+    try:
+        user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+
+def system_dpi_scale() -> float:
+    """Facteur DPI Windows (1.0 = 96 DPI, 1.5 = 150 %)."""
+    try:
+        dpi = int(user32.GetDpiForSystem())
+        if dpi > 0:
+            return max(1.0, dpi / 96.0)
+    except Exception:
+        pass
+    try:
+        hdc = user32.GetDC(0)
+        dpi = int(ctypes.windll.gdi32.GetDeviceCaps(hdc, 88))  # LOGPIXELSX
+        user32.ReleaseDC(0, hdc)
+        if dpi > 0:
+            return max(1.0, dpi / 96.0)
+    except Exception:
+        pass
+    return 1.0
+
+
+def compute_ui_scale(sw: int, sh: int, dpi_scale: float | None = None) -> float:
+    """
+    Échelle de layout pour tenir dans l'écran (1366×768, etc.).
+    Le facteur DPI OS est géré à part via apply_tk_dpi_scaling (CTk → 1.0).
+    """
+    del dpi_scale  # conservé pour compat appels existants
+    fit = min(float(sw) / _DESIGN_W, float(sh) / _DESIGN_H, 1.0)
+    return max(0.62, min(1.0, round(fit, 3)))
+
+
+def apply_tk_dpi_scaling(root, ui_scale: float = 1.0) -> None:
+    """
+    Neutralise le double-scale CustomTkinter (souvent 125–150 % sur Windows)
+    pour que geometry plein écran = pixels moniteur.
+    """
+    del ui_scale
+    try:
+        import customtkinter as ctk
+        ctk.set_widget_scaling(1.0)
+        ctk.set_window_scaling(1.0)
+    except Exception:
+        pass
+    try:
+        root.tk.call("tk", "scaling", 1.0)
+    except Exception:
+        pass
+
+
+def fit_toplevel(win, width: int, height: int, pad: int = 48) -> None:
+    """Centre une fenêtre secondaire et la borne à l'écran visible."""
+    try:
+        win.update_idletasks()
+        sw = int(win.winfo_screenwidth())
+        sh = int(win.winfo_screenheight())
+        w = max(320, min(int(width), sw - pad))
+        h = max(280, min(int(height), sh - pad))
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2)
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        try:
+            win.minsize(min(400, w), min(360, h))
+        except Exception:
+            pass
+    except Exception:
+        try:
+            win.geometry(f"{width}x{height}")
+        except Exception:
+            pass
 
 GWL_EXSTYLE = -20
 WS_EX_LAYERED = 0x00080000
@@ -240,7 +333,7 @@ class HotkeyListener:
         except Exception:
             pass
         try:
-            self.root.after(40, self._poll)
+            self.root.after(55, self._poll)
         except Exception:
             self._ok = False
 

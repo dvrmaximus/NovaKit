@@ -84,6 +84,10 @@ def init_db() -> None:
                 done_at REAL
             );
             CREATE INDEX IF NOT EXISTS idx_commands_client ON commands(client_id, status);
+            CREATE INDEX IF NOT EXISTS idx_installs_client ON installs(client_id);
+            CREATE INDEX IF NOT EXISTS idx_installs_email ON installs(email);
+            CREATE INDEX IF NOT EXISTS idx_installs_online ON installs(online, last_seen);
+            CREATE INDEX IF NOT EXISTS idx_sessions_exp ON sessions(expires_at);
             """
         )
 

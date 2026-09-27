@@ -198,10 +198,10 @@ async def screen_stream(ws: WebSocket):
         return
 
     try:
-        fps = int(ws.query_params.get("fps", "30"))
+        fps = int(ws.query_params.get("fps", "18"))
     except ValueError:
-        fps = 30
-    fps = max(15, min(30, fps))
+        fps = 18
+    fps = max(8, min(30, fps))
     interval = 1.0 / fps
     mode = ws.query_params.get("q", "eco")
     regler_qualite("hq" if mode == "hq" else "eco")

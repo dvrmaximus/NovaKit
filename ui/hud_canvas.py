@@ -18,14 +18,15 @@ class HudCanvas(tk.Canvas):
         self.size = size
         self.cx = size // 2
         self.cy = size // 2
+        self._base_r = max(36, int(size * 0.31))
         self.phase = 0.0
         self.state = "idle"
-        self.wave_heights = [0.2] * 12
+        self.wave_heights = [0.2] * 10
         self._wave_tick = 0
         self._paused = False
         self._after_id = None
-        self._last_label = ""
-        self._items = {}  # ids réutilisables quand possible
+        self._last_draw_key = None
+        self._idle_skip = 0
         self.bind("<Destroy>", self._on_destroy)
         self.bind("<Map>", lambda e: self._set_paused(False))
         self.bind("<Unmap>", lambda e: self._set_paused(True))
@@ -34,7 +35,7 @@ class HudCanvas(tk.Canvas):
     def set_state(self, state: str):
         if state != self.state:
             self.state = state
-            # relance plus vite si sortie d'idle
+            self._idle_skip = 0
             if not self._paused and self._after_id is None:
                 self._animer()
 
@@ -57,12 +58,12 @@ class HudCanvas(tk.Canvas):
                 pass
 
     def _delay_ms(self) -> int:
-        # Idle : ~10 fps ; actif : ~20 fps ; thinking : ~14 fps
+        # Idle ~6 fps ; thinking ~12 ; actif ~16
         if self.state == "idle":
-            return 100
+            return 160
         if self.state == "thinking":
-            return 70
-        return 50
+            return 80
+        return 60
 
     def _animer(self):
         self._after_id = None
@@ -74,14 +75,21 @@ class HudCanvas(tk.Canvas):
         if self._paused:
             return
 
-        # Fenêtre minimisée / iconifiée : ralentir fortement
         try:
             top = self.winfo_toplevel()
             if str(top.state()) == "iconic":
-                self._after_id = self.after(400, self._animer)
+                self._after_id = self.after(800, self._animer)
                 return
         except Exception:
             pass
+
+        # Idle : saute 1 frame sur 2 (respiration déjà lente)
+        if self.state == "idle":
+            self._idle_skip ^= 1
+            if self._idle_skip:
+                self.phase += 0.035
+                self._after_id = self.after(self._delay_ms(), self._animer)
+                return
 
         accent = theme.ACCENT
         soft = theme.ACCENT_SOFT
@@ -92,24 +100,31 @@ class HudCanvas(tk.Canvas):
         muted = theme.TEXT_MUTED
         success = theme.SUCCESS
 
-        breath = 1.0 + 0.045 * math.sin(self.phase)
-        glow_pulse = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(self.phase * 0.7))
-        r = int(68 * breath)
+        breath = 1.0 + 0.04 * math.sin(self.phase)
+        glow_pulse = 0.55 + 0.4 * (0.5 + 0.5 * math.sin(self.phase * 0.7))
+        r = int(self._base_r * breath)
+
+        # Évite redraw identique (idle quasi-statique)
+        draw_key = (self.state, r, int(glow_pulse * 8), accent, theme.ACCENT_DIM)
+        if self.state == "idle" and draw_key == self._last_draw_key:
+            self.phase += 0.04
+            self._after_id = self.after(self._delay_ms(), self._animer)
+            return
+        self._last_draw_key = draw_key
 
         self.delete("all")
 
-        # Halo extérieur (glow soft)
-        halo_r = r + 28 + int(6 * glow_pulse)
+        halo_r = r + max(18, self.size // 10) + int(5 * glow_pulse)
         self.create_oval(
             self.cx - halo_r, self.cy - halo_r, self.cx + halo_r, self.cy + halo_r,
             outline=glow, width=2,
         )
         self.create_oval(
-            self.cx - r - 16, self.cy - r - 16, self.cx + r + 16, self.cy + r + 16,
+            self.cx - r - 14, self.cy - r - 14, self.cx + r + 14, self.cy + r + 14,
             outline=line, width=1,
         )
         self.create_oval(
-            self.cx - r - 8, self.cy - r - 8, self.cx + r + 8, self.cy + r + 8,
+            self.cx - r - 7, self.cy - r - 7, self.cx + r + 7, self.cy + r + 7,
             outline=dim, width=1,
         )
 
@@ -120,33 +135,28 @@ class HudCanvas(tk.Canvas):
             "thinking": success,
         }.get(self.state, dim)
 
-        # Anneau principal
         self.create_oval(
             self.cx - r, self.cy - r, self.cx + r, self.cy + r,
             outline=col, width=2, fill=bg,
         )
-        # Arc de scan (futuriste)
         if self.state != "idle":
             a0 = (self.phase * 40) % 360
             self.create_arc(
-                self.cx - r - 4, self.cy - r - 4, self.cx + r + 4, self.cy + r + 4,
+                self.cx - r - 3, self.cy - r - 3, self.cx + r + 3, self.cy + r + 3,
                 start=a0, extent=70, style="arc", outline=accent, width=2,
             )
 
-        nr = 7 if self.state == "idle" else 11
+        nr = 6 if self.state == "idle" else 10
         self.create_oval(
             self.cx - nr, self.cy - nr, self.cx + nr, self.cy + nr,
             fill=col, outline="",
         )
-        # Point chaud central
         if self.state in ("listening", "speaking"):
             hr = max(2, nr // 3)
             self.create_oval(
                 self.cx - hr, self.cy - hr, self.cx + hr, self.cy + hr,
                 fill=theme.ACCENT_HOT, outline="",
             )
-
-        if self.state in ("listening", "speaking"):
             self._onde(col)
 
         label = {
@@ -156,25 +166,26 @@ class HudCanvas(tk.Canvas):
             "thinking": "…",
         }.get(self.state, "")
         self.create_text(
-            self.cx, self.cy + r + 26, text=label, fill=muted, font=("Segoe UI", 9),
+            self.cx, self.cy + r + max(18, self.size // 10),
+            text=label, fill=muted, font=("Segoe UI", 9),
         )
 
-        boost = {"idle": 0.55, "listening": 1.5, "speaking": 1.7, "thinking": 1.1}.get(
+        boost = {"idle": 0.5, "listening": 1.45, "speaking": 1.6, "thinking": 1.05}.get(
             self.state, 1.0
         )
-        self.phase += 0.07 * boost
+        self.phase += 0.065 * boost
         self._after_id = self.after(self._delay_ms(), self._animer)
 
     def _onde(self, col):
         self._wave_tick += 1
-        # regenerer hauteurs 1 frame sur 2 pour fluidité / CPU
+        n = len(self.wave_heights)
         if self._wave_tick % 2 == 0:
-            for i in range(12):
+            for i in range(n):
                 self.wave_heights[i] = 0.25 + 0.55 * random.random()
         base_y = self.cy + 4
-        step = 8
-        x0 = self.cx - (12 * step) / 2
+        step = max(6, self.size // 28)
+        x0 = self.cx - (n * step) / 2
         for i, h in enumerate(self.wave_heights):
             x = x0 + i * step
-            hh = 6 + h * 18
+            hh = 5 + h * 16
             self.create_line(x, base_y - hh, x, base_y + hh, fill=col, width=2)
