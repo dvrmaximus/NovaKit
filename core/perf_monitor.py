@@ -40,6 +40,8 @@ class PerfSnapshot:
     gpu_vram_used_gb: float | None = None
     gpu_vram_total_gb: float | None = None
     gpu_temp_c: float | None = None
+    gpu_power_w: float | None = None
+    cpu_name: str | None = None
     cpu_temp_c: float | None = None
     extras: dict[str, Any] = field(default_factory=dict)
 
@@ -97,7 +99,18 @@ def _collect() -> PerfSnapshot:
         pass
     _fill_gpu(s)
     _fill_temps(s)
+    _fill_cpu_name(s)
     return s
+
+
+def _fill_cpu_name(s: PerfSnapshot) -> None:
+    try:
+        from core.gaming_estimate import detect_hardware
+        hw = detect_hardware()
+        if hw and hw.cpu_name:
+            s.cpu_name = hw.cpu_name
+    except Exception:
+        pass
 
 
 def _fill_temps(s: PerfSnapshot) -> None:
@@ -157,7 +170,7 @@ def _gpu_nvidia_smi(s: PerfSnapshot) -> bool:
         out = subprocess.check_output(
             [
                 "nvidia-smi",
-                "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+                "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
                 "--format=csv,noheader,nounits",
             ],
             stderr=subprocess.DEVNULL,
@@ -177,6 +190,13 @@ def _gpu_nvidia_smi(s: PerfSnapshot) -> bool:
         s.gpu_vram_total_gb = total / 1024.0
         s.gpu_vram_percent = (used / total) * 100.0 if total else None
         s.gpu_temp_c = float(parts[4])
+        if len(parts) >= 6:
+            try:
+                pw = parts[5].replace("[N/A]", "").strip()
+                if pw:
+                    s.gpu_power_w = float(pw)
+            except (TypeError, ValueError):
+                pass
         return True
     except Exception:
         return False

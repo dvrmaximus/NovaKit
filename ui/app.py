@@ -583,7 +583,23 @@ class AstatApp:
                 mode = getattr(self, "_hud_mode", "assist")
                 self.hud_canvas.set_fps_tracking(bool(enabled) or mode == "gaming")
 
-        self._perf_view = PerfPanel(perf, wraplength=wrap)
+        def _on_boost(active: bool):
+            if getattr(self, "hud_canvas", None):
+                try:
+                    self.hud_canvas.set_eco_idle(bool(active))
+                except Exception:
+                    pass
+            # Polling telemetrie plus doux
+            if active:
+                self._telemetry_interval = max(getattr(self, "_telemetry_interval", 800), 1200)
+
+        self._perf_view = PerfPanel(
+            perf,
+            wraplength=wrap,
+            get_hud_fps=_fps,
+            get_frame_ms=_ms,
+            on_boost_changed=_on_boost,
+        )
         self._perf_view.pack(fill="both", expand=True)
         self._gaming_view = GamingPanel(
             game,
@@ -597,6 +613,19 @@ class AstatApp:
         self._gaming_view.pack(fill="both", expand=True)
 
         self._appliquer_mode_hud(getattr(self, "_hud_mode", "assist"), announce=False)
+        # Restaurer Mode Performance si preference persistee
+        try:
+            from core import perf_boost
+            from core.mode_settings import get_section
+            if get_section("perf").get("mode_performance"):
+                self.root.after(400, lambda: (
+                    perf_boost.apply_from_settings(),
+                    _on_boost(True),
+                    getattr(self, "_perf_view", None)
+                    and self._perf_view._sync_boost_status_ui(),
+                ))
+        except Exception:
+            pass
 
     def _ui_set_mode(self, mode: str):
         msg = hud_modes.set_mode(mode)
@@ -716,12 +745,14 @@ class AstatApp:
 
     def _sync_fps_tracking(self):
         mode = getattr(self, "_hud_mode", "assist")
-        want = mode == "gaming"
+        want = mode in ("gaming", "performance")
         try:
             from core.mode_settings import get_section
-            if get_section("gaming").get("hud_fps_overlay", True) and mode == "gaming":
-                want = True
-            elif mode != "gaming":
+            if mode == "gaming":
+                want = bool(get_section("gaming").get("hud_fps_overlay", True))
+            elif mode == "performance":
+                want = bool(get_section("perf").get("show_fps", True))
+            else:
                 want = False
         except Exception:
             pass
@@ -761,12 +792,38 @@ class AstatApp:
                 pass
         self._relayout_for_mode(mode)
         self._sync_fps_tracking()
+        # Quitter Assist : restaurer optimisations OS (preference = off)
+        if mode == "assist" and prev != "assist":
+            try:
+                from core import perf_boost
+                if perf_boost.is_active():
+                    perf_boost.disable()
+                if self._perf_view:
+                    self._perf_view.v_mode_perf.set(False)
+                    self._perf_view._sync_boost_status_ui()
+                if getattr(self, "hud_canvas", None):
+                    self.hud_canvas.set_eco_idle(False)
+            except Exception:
+                pass
         if mode == "performance":
             self._telemetry_interval = 800
+            # FPS tracking pour cartes Mesures
+            if getattr(self, "hud_canvas", None):
+                try:
+                    self.hud_canvas.set_fps_tracking(True)
+                except Exception:
+                    pass
         elif mode == "gaming":
             self._telemetry_interval = 2500
         else:
             self._telemetry_interval = 4000
+        # Eco idle si Mode Performance actif
+        try:
+            from core import perf_boost
+            if getattr(self, "hud_canvas", None):
+                self.hud_canvas.set_eco_idle(perf_boost.is_active())
+        except Exception:
+            pass
         if announce:
             try:
                 self.top_status.configure(text=f"mode {hud_modes.LABELS.get(mode, mode).lower()}")
@@ -1164,6 +1221,12 @@ class AstatApp:
             except Exception:
                 pass
         try:
+            from core import perf_boost
+            if perf_boost.is_active():
+                perf_boost.disable()
+        except Exception:
+            pass
+        try:
             self.root.destroy()
         except Exception:
             pass
@@ -1444,6 +1507,13 @@ class AstatApp:
             except Exception:
                 pass
             delay = 500
+        elif mode == "performance" and getattr(self, "hud_canvas", None):
+            # Force tracking leger pour sparklines FPS en Mesures
+            try:
+                self.hud_canvas.set_fps_tracking(True)
+            except Exception:
+                pass
+            delay = 600
         else:
             delay = 2000
         self.root.after(delay, self._tick_mode_fps)

@@ -31,6 +31,7 @@ class HudCanvas(tk.Canvas):
         self._frame_ms = 0.0
         self._fps_times: list[float] = []
         self._fps_tracking = False
+        self._eco_idle = False  # Mode Performance : idle encore plus lent
         self.bind("<Destroy>", self._on_destroy)
         self.bind("<Map>", lambda e: self._set_paused(False))
         self.bind("<Unmap>", lambda e: self._set_paused(True))
@@ -68,6 +69,10 @@ class HudCanvas(tk.Canvas):
             self._fps = 0.0
             self._frame_ms = 0.0
 
+    def set_eco_idle(self, enabled: bool):
+        """Reduit encore le FPS idle (Mode Performance / anti-lag Astat)."""
+        self._eco_idle = bool(enabled)
+
     def get_fps(self) -> float:
         return float(self._fps)
 
@@ -90,12 +95,12 @@ class HudCanvas(tk.Canvas):
             self._frame_ms = (span / (n - 1)) * 1000.0 if n > 1 else 0.0
 
     def _delay_ms(self) -> int:
-        # Idle ~6 fps ; thinking ~12 ; actif ~16
+        # Idle ~6 fps ; eco ~3 ; thinking ~12 ; actif ~16
         if self.state == "idle":
-            return 160
+            return 320 if self._eco_idle else 160
         if self.state == "thinking":
-            return 80
-        return 60
+            return 100 if self._eco_idle else 80
+        return 80 if self._eco_idle else 60
 
     def _animer(self):
         self._after_id = None

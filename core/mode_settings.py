@@ -22,10 +22,18 @@ DEFAULTS: dict[str, Any] = {
         "show_disk": True,
         "show_net": True,
         "show_temps": True,
+        "show_fps": True,
         "alert_cpu": 90,
         "alert_ram": 90,
         "alert_gpu": 95,
         "history_points": 60,
+        "mode_performance": False,
+        "boost_game_mode": True,
+        "boost_lower_bg": False,
+        "boost_apps": ["discord", "chrome"],
+        "advisor_last_game": "",
+        "advisor_last_score": 0,
+        "advisor_last_profil": "",
     },
     "gaming": {
         "resolution_preset": "auto",
@@ -122,8 +130,21 @@ def _sanitize(data: dict[str, Any]) -> dict[str, Any]:
         p["history_points"] = int(max(20, min(120, float(p.get("history_points", 60)))))
     except (TypeError, ValueError):
         p["history_points"] = 60
-    for key in ("show_cpu", "show_ram", "show_gpu", "show_disk", "show_net", "show_temps"):
+    for key in ("show_cpu", "show_ram", "show_gpu", "show_disk", "show_net", "show_temps", "show_fps"):
         p[key] = bool(p.get(key, True))
+    p["mode_performance"] = bool(p.get("mode_performance", False))
+    p["boost_game_mode"] = bool(p.get("boost_game_mode", True))
+    p["boost_lower_bg"] = bool(p.get("boost_lower_bg", False))
+    apps = p.get("boost_apps")
+    if not isinstance(apps, list):
+        apps = ["discord", "chrome"]
+    p["boost_apps"] = [str(a) for a in apps][:24]
+    p["advisor_last_game"] = str(p.get("advisor_last_game") or "")
+    try:
+        p["advisor_last_score"] = int(max(0, min(100, float(p.get("advisor_last_score") or 0))))
+    except (TypeError, ValueError):
+        p["advisor_last_score"] = 0
+    p["advisor_last_profil"] = str(p.get("advisor_last_profil") or "")
 
     g = out["gaming"]
     res = str(g.get("resolution_preset") or "auto").lower()
